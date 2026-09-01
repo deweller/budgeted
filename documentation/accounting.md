@@ -464,6 +464,13 @@ assignment rows remain month-specific state.
 
 YNAB import planning lives in `src/features/import/ynab/planner.ts`.
 
+YNAB exports are imported from the YNAB tab under Utilities > Import and
+Export. The web workflow accepts the export ZIP or its Plan and Register CSV
+files, previews inferred account roles and types, and always creates a separate
+ledger. Preview and persistence run in a dedicated asynchronous worker so the
+web request does not wait for the full import. The imported ledger is not made
+active automatically.
+
 The importer:
 
 - Creates account records with `openingBalanceCents` from imported starting

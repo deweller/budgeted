@@ -197,7 +197,7 @@ function normalizeLedgerName(name: string) {
     return normalizedName;
 }
 
-async function assertLedgerNameIsAvailable(input: {
+export async function assertLedgerNameIsAvailable(input: {
     ledgerId?: string;
     name: string;
 }) {

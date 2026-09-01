@@ -37,6 +37,7 @@ import { createWorkspaceMutationBatchEntity } from "@/lib/db/entities/workspace-
 import { createWorkspaceMutationReceiptEntity } from "@/lib/db/entities/workspace-mutation-receipt.entity";
 import { createWorkspaceMutationOperationEntity } from "@/lib/db/entities/workspace-mutation-operation.entity";
 import { createWorkspaceStateEntity } from "@/lib/db/entities/workspace-state.entity";
+import { createYnabImportJobEntity } from "@/lib/db/entities/ynab-import-job.entity";
 import { requireLedgerTableName } from "@/lib/db/resource";
 
 export function createEntityOptions(
@@ -96,6 +97,7 @@ export function createBudgetedSchema(table = requireLedgerTableName()) {
     const workspaceStates = createWorkspaceStateEntity(options);
     const venmoIntegrations = createVenmoIntegrationEntity(options);
     const venmoAccountMappings = createVenmoAccountMappingEntity(options);
+    const ynabImportJobs = createYnabImportJobEntity(options);
 
     const service = new Service(
         {
@@ -134,6 +136,7 @@ export function createBudgetedSchema(table = requireLedgerTableName()) {
             plaidTransactionSyncs,
             venmoIntegrations,
             venmoAccountMappings,
+            ynabImportJobs,
         },
         options,
     );
@@ -176,6 +179,7 @@ export function createBudgetedSchema(table = requireLedgerTableName()) {
             workspaceStates,
             venmoIntegrations,
             venmoAccountMappings,
+            ynabImportJobs,
         },
     };
 }

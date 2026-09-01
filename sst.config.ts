@@ -193,9 +193,32 @@ export default $config({
                 ],
             },
         );
+        const ynabImportArtifacts = new sst.aws.Bucket(
+            "YnabImportArtifacts",
+            {
+                cors: {
+                    allowHeaders: ["content-type"],
+                    allowMethods: ["PUT"],
+                    allowOrigins: ["*"],
+                },
+                lifecycle: [
+                    {
+                        expiresIn: "2 days",
+                        id: "expire-ynab-imports",
+                        prefix: "ynab-imports/",
+                    },
+                ],
+            },
+        );
         const automationHandler = new sst.aws.Function("AutomationHandler", {
             handler: "src/functions/automation-scheduler.handler",
             link: [ledgerTable, ...Object.values(secrets)],
+            timeout: "15 minutes",
+        });
+        const ynabImportWorker = new sst.aws.Function("YnabImportWorker", {
+            handler: "src/functions/ynab-import-worker.handler",
+            link: [ledgerTable, ynabImportArtifacts],
+            memory: "2 GB",
             timeout: "15 minutes",
         });
         const web = new sst.aws.Nextjs("Web", {
@@ -210,7 +233,9 @@ export default $config({
             link: [
                 ledgerTable,
                 ledgerExportArtifacts,
+                ynabImportArtifacts,
                 automationHandler,
+                ynabImportWorker,
                 ...Object.values(secrets),
             ],
         });

@@ -18,10 +18,7 @@ import {
 import { isZeroNetMultiLineTransaction } from "@/features/transactions/models/transaction-shape";
 import { groupBy } from "@/lib/collections";
 import { normalizeOptionalString } from "@/lib/strings";
-import {
-    accountTypeValues,
-    type AccountType,
-} from "@/modules/accounts/account-types";
+import type { AccountType } from "@/modules/accounts/account-types";
 import {
     buildTransactionLinePostingInputs,
     getMonthlyPeriodBounds,
@@ -42,18 +39,6 @@ export type YnabAccountMapping = {
     importRole: YnabImportRole;
     reason: string;
 };
-
-export type YnabImportMappingFile = {
-    accounts: YnabAccountMapping[];
-    generatedAt: string;
-    source: string;
-};
-
-const accountTypeSet = new Set<string>(accountTypeValues);
-
-function isAccountType(value: unknown): value is AccountType {
-    return typeof value === "string" && accountTypeSet.has(value);
-}
 
 export type YnabImportSummary = {
     accountCountByRole: Record<YnabImportRole, number>;
@@ -1520,63 +1505,6 @@ function createImportWarnings(input: {
     return warnings;
 }
 
-export function createYnabImportMappingFile(input: {
-    accountMappings: YnabAccountMapping[];
-    generatedAt?: string;
-    source: string;
-}): YnabImportMappingFile {
-    return {
-        source: input.source,
-        generatedAt: input.generatedAt ?? new Date().toISOString(),
-        accounts: input.accountMappings,
-    };
-}
-
-export function parseYnabImportMappingFile(value: unknown): YnabAccountMapping[] {
-    if (!value || typeof value !== "object" || !("accounts" in value)) {
-        throw new Error("YNAB account map must contain an accounts array.");
-    }
-
-    const accounts = (value as { accounts: unknown }).accounts;
-
-    if (!Array.isArray(accounts)) {
-        throw new Error("YNAB account map must contain an accounts array.");
-    }
-
-    return accounts.map((entry, index) => {
-        if (!entry || typeof entry !== "object") {
-            throw new Error(`Account map entry ${index} must be an object.`);
-        }
-
-        const mapping = entry as Partial<YnabAccountMapping>;
-
-        if (
-            !mapping.accountName ||
-            !mapping.accountId ||
-            !mapping.accountType ||
-            !mapping.importRole
-        ) {
-            throw new Error(
-                `Account map entry ${index} is missing required fields.`,
-            );
-        }
-
-        if (!isAccountType(mapping.accountType)) {
-            throw new Error(
-                `Account map entry ${index} has an unsupported account type.`,
-            );
-        }
-
-        return {
-            accountId: mapping.accountId,
-            accountName: normalizeDisplayName(mapping.accountName),
-            accountType: mapping.accountType,
-            importRole: mapping.importRole,
-            reason: mapping.reason ?? "Reviewed import mapping.",
-        };
-    });
-}
-
 export function createYnabImportPlan(input: YnabImportBuildInput): YnabImportPlan {
     const now = input.now ?? new Date().toISOString();
 
@@ -1689,7 +1617,3 @@ export const ynabImportTestInternals = {
     parseRegisterDate,
     stableId,
 };
-
-export function createYnabLedgerId(ledgerName: string) {
-    return stableId("ledger", [ledgerName]);
-}

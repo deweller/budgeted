@@ -13,6 +13,7 @@ import { useFeedbackToasts } from "@/components/shared/feedback-toast-provider";
 import { useBackgroundMutationActivity } from "@/components/shared/background-mutation-activity-provider";
 import { useWorkspaceStore } from "@/components/workspace/workspace-store-provider";
 import { BudgetPlanWorkbookPanel } from "@/components/utilities/budget-plan-workbook-panel";
+import { YnabImportPanel } from "@/components/utilities/ynab-import-panel";
 import {
     LEDGER_TRANSFER_RECORD_FAMILIES,
     countLedgerTransferRecords,
@@ -120,7 +121,7 @@ export function LedgerTransferPanel() {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [isDraggingImportFile, setIsDraggingImportFile] = useState(false);
-    const [activeTab, setActiveTab] = useState<"entireLedger" | "budgetPlan">(
+    const [activeTab, setActiveTab] = useState<"entireLedger" | "budgetPlan" | "ynab">(
         "entireLedger",
     );
     const [importState, setImportState] =
@@ -342,9 +343,23 @@ export function LedgerTransferPanel() {
                 >
                     Budget Plan
                 </button>
+                <button
+                    aria-selected={activeTab === "ynab"}
+                    className={`cursor-pointer border-l border-[var(--color-border)] px-4 py-2 text-sm font-medium transition ${
+                        activeTab === "ynab"
+                            ? "bg-[var(--color-accent-ink)] text-white"
+                            : "bg-[var(--color-panel-strong)] text-[var(--color-ink)] hover:bg-[var(--color-panel-elevated)]"
+                    }`}
+                    onClick={() => setActiveTab("ynab")}
+                    role="tab"
+                    type="button"
+                >
+                    YNAB
+                </button>
             </div>
 
             {activeTab === "budgetPlan" ? <BudgetPlanWorkbookPanel /> : null}
+            {activeTab === "ynab" ? <YnabImportPanel /> : null}
 
             {activeTab === "entireLedger" ? (
             <div className="mt-4 grid items-start gap-9">
