@@ -1,0 +1,8 @@
+From: Venmo <venmo@venmo.com>
+To: Forwarding User <forward@example.com>
+Subject: Your Venmo Standard transfer has been initiated
+Message-ID: <transfer-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Standard transfer initiated</h1><div>INITIATED ON</div><div>Sunday, July 05, 2026</div><div>TRANSFER AMOUNT</div><div>$10.00</div><div>TRANSFER TRANSACTION ID</div><div>transfer-provider-1</div><div>ESTIMATED ARRIVAL</div><div>Wednesday, July 08, 2026</div><div>DESTINATION</div><div>SAMPLE CREDIT UNION ····5678</div></body></html>

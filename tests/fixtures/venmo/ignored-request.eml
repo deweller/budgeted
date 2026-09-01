@@ -1,0 +1,8 @@
+From: Venmo <venmo@venmo.com>
+To: Forwarding User <forward@example.com>
+Subject: Reminder: Sample Friend requests $28.81
+Message-ID: <ignored-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>This is a payment request reminder.</p></body></html>

@@ -1,0 +1,8 @@
+From: Venmo <venmo@venmo.com>
+To: Forwarding User <forward@example.com>
+Subject: Sample Friend is now your friend on Venmo
+Message-ID: <friend-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>You are now friends on Venmo.</p></body></html>

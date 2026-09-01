@@ -1,0 +1,8 @@
+From: Venmo <venmo@venmo.com>
+To: Forwarding User <forward@example.com>
+Subject: Sample Friend paid you $32.30
+Message-ID: <received-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Sample Friend paid you</h1><div>$</div><div>32</div><div>.</div><div>30</div><p>Game night 🏐</p><p>MONEY CREDITED TO YOUR VENMO ACCOUNT.</p><h2>TRANSACTION DETAILS</h2><div>DATE</div><div>May 20, 2026</div><div>TRANSACTION ID</div><div>received-provider-1</div><div>SENT TO</div><div>@sample</div></body></html>

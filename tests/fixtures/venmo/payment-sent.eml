@@ -1,0 +1,16 @@
+From: Venmo <venmo@venmo.com>
+To: Forwarding User <forward@example.com>
+Subject: You paid Sample Friend $35.00
+Message-ID: <sent-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="venmo-boundary"
+
+--venmo-boundary
+Content-Type: text/plain; charset=utf-8
+
+--venmo-boundary
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><h1>You paid Sample Friend</h1><div>$</div><div>35</div><div>.</div><div>00</div><p>Shared dinner =F0=9F=8D=95</p><a href=3D"https://venmo.com/story/sanitized">See transaction</a><h2>TRANSACTION DETAILS</h2><div>DATE</div><div>May 26, 2026</div><div>STATUS</div><div>Completed</div><div>TRANSACTION ID</div><div>sent-provider-1</div><div>PAYMENT METHOD</div><div>SAMPLE BANK account ending in 1234</div><div>SENT FROM</div><div>@sample</div></body></html>
+--venmo-boundary--

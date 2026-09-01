@@ -1,0 +1,541 @@
+import { ulid } from "ulid";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
+
+import type {
+    LedgerDeletionInput,
+    LedgerInput,
+    LedgerUpdateInput,
+} from "@/features/ledgers/models/ledger-form";
+import { HttpError } from "@/lib/api/errors";
+import {
+    findUserAccountById,
+    type UserAccountRecord,
+} from "@/lib/auth/user-account";
+import { deleteItemsInBatches } from "@/lib/db/batch-delete";
+import { documentClient } from "@/lib/db/client";
+import { listAllPaginatedItems } from "@/lib/db/paginated-list";
+import { queryAllPages } from "@/lib/db/query-all-pages";
+import { requireLedgerTableName } from "@/lib/db/resource";
+import { getBudgetedSchema } from "@/lib/db/schema";
+import { GLOBAL_WORKSPACE_ID } from "@/lib/workspace/scope";
+import {
+    buildWorkspaceSnapshot,
+    createWorkspaceStateFromRecords,
+    rebuildWorkspaceStateForGeneration,
+    toWorkspaceStateRecord,
+} from "@/features/workspace/server/workspace-sync-service";
+import { createEmptyWorkspaceSnapshotRecords } from "@/lib/workspace/snapshot-utils";
+import { createWorkspaceUpsertChange } from "@/features/workspace/server/workspace-change-builder";
+
+export const DEFAULT_LEDGER_ID = "default";
+
+export type LedgerRecord = {
+    createdAt: string;
+    isDefault: boolean;
+    ledgerId: string;
+    name: string;
+    status: "active" | "archived";
+    updatedAt: string;
+    workspaceGeneration: number;
+    workspaceRevision: number;
+    workspaceSyncProtocolVersion?: number;
+    workspaceId: string;
+};
+
+export type ActiveLedgerContext = {
+    ledger: LedgerRecord;
+    ledgerId: string;
+    ledgerName: string;
+};
+
+function compareLedgers(left: LedgerRecord, right: LedgerRecord) {
+    const createdAtComparison = left.createdAt.localeCompare(right.createdAt);
+
+    if (createdAtComparison !== 0) {
+        return createdAtComparison;
+    }
+
+    return left.name.localeCompare(right.name);
+}
+
+export async function getLedgerRecord(ledgerId: string) {
+    const { entities } = getBudgetedSchema();
+    const result = await entities.ledgers
+        .get({ workspaceId: GLOBAL_WORKSPACE_ID, ledgerId })
+        .go();
+
+    return (result.data as LedgerRecord | undefined) ?? null;
+}
+
+async function requireLedgerRecord(ledgerId: string) {
+    const ledger = await getLedgerRecord(ledgerId);
+
+    if (!ledger) {
+        throw new HttpError(
+            404,
+            "ledger_missing",
+            "The selected ledger could not be found.",
+        );
+    }
+
+    return ledger;
+}
+
+async function listLedgerRecords() {
+    const { entities } = getBudgetedSchema();
+    const ledgers = await queryAllPages(
+        entities.ledgers.query.byLedger({ workspaceId: GLOBAL_WORKSPACE_ID }),
+        { consistent: true },
+    );
+
+    return (ledgers as LedgerRecord[]).sort(compareLedgers);
+}
+
+async function persistActiveLedgerId(userId: string, ledgerId: string) {
+    const { entities } = getBudgetedSchema();
+    const user = await findUserAccountById(userId);
+
+    if (!user) {
+        throw new HttpError(
+            404,
+            "user_missing",
+            "The user account could not be found.",
+        );
+    }
+
+    await entities.userAccounts
+        .upsert({
+            ...user,
+            activeLedgerId: ledgerId,
+            updatedAt: new Date().toISOString(),
+        })
+        .go();
+}
+
+async function persistNewLedger(record: LedgerRecord) {
+    const { service } = getBudgetedSchema();
+    const records = createEmptyWorkspaceSnapshotRecords();
+    records.ledgers = [record];
+    const workspaceState = createWorkspaceStateFromRecords({
+        ledgerId: record.ledgerId,
+        oldestRetainedWorkspaceRevision: record.workspaceRevision,
+        records,
+        workspaceGeneration: record.workspaceGeneration,
+        workspaceRevision: record.workspaceRevision,
+    });
+
+    await service.transaction
+        .write((entities) => [
+            entities.ledgers.put(record).commit(),
+            entities.workspaceStates
+                .put(toWorkspaceStateRecord(workspaceState))
+                .commit(),
+        ])
+        .go();
+}
+
+export async function ensureDefaultLedger() {
+    const existing = await getLedgerRecord(DEFAULT_LEDGER_ID);
+
+    if (existing) {
+        if (!existing.isDefault) {
+            return existing;
+        }
+
+        const { entities } = getBudgetedSchema();
+        const normalized = {
+            ...existing,
+            isDefault: false,
+            updatedAt: new Date().toISOString(),
+        } satisfies LedgerRecord;
+
+        await entities.ledgers.upsert(normalized).go();
+
+        return normalized;
+    }
+
+    const now = new Date().toISOString();
+    const record = {
+        ledgerId: DEFAULT_LEDGER_ID,
+        workspaceId: GLOBAL_WORKSPACE_ID,
+        name: "Initial ledger",
+        isDefault: false,
+        status: "active" as const,
+        createdAt: now,
+        updatedAt: now,
+        workspaceGeneration: 1,
+        workspaceRevision: 0,
+        workspaceSyncProtocolVersion: 2,
+    } satisfies LedgerRecord;
+
+    await persistNewLedger(record);
+
+    return record;
+}
+
+export async function listLedgers() {
+    const ledgers = await listLedgerRecords();
+
+    if (ledgers.length > 0) {
+        return ledgers;
+    }
+
+    return [await ensureDefaultLedger()];
+}
+
+function normalizeLedgerName(name: string) {
+    const normalizedName = name.trim();
+
+    if (!normalizedName) {
+        throw new HttpError(
+            422,
+            "validation_error",
+            "Ledger name is required.",
+        );
+    }
+
+    return normalizedName;
+}
+
+async function assertLedgerNameIsAvailable(input: {
+    ledgerId?: string;
+    name: string;
+}) {
+    const ledgers = await listLedgerRecords();
+
+    if (
+        ledgers.some(
+            (ledger) =>
+                ledger.ledgerId !== input.ledgerId &&
+                ledger.name.trim().toLowerCase() ===
+                    input.name.toLowerCase(),
+        )
+    ) {
+        throw new HttpError(
+            409,
+            "ledger_conflict",
+            "A ledger with this name already exists.",
+        );
+    }
+}
+
+export async function createLedger(userId: string, input: LedgerInput) {
+    const now = new Date().toISOString();
+    const ledgerId = ulid();
+    const name = normalizeLedgerName(input.name);
+
+    await assertLedgerNameIsAvailable({ name });
+
+    const record = {
+        ledgerId,
+        workspaceId: GLOBAL_WORKSPACE_ID,
+        name,
+        isDefault: false,
+        status: "active" as const,
+        createdAt: now,
+        updatedAt: now,
+        workspaceGeneration: 1,
+        workspaceRevision: 0,
+        workspaceSyncProtocolVersion: 2,
+    } satisfies LedgerRecord;
+
+    await persistNewLedger(record);
+    await persistActiveLedgerId(userId, ledgerId);
+
+    return record;
+}
+
+export async function setActiveLedger(userId: string, ledgerId: string) {
+    const ledger = await requireLedgerRecord(ledgerId);
+
+    // A ledger switch must be recoverable even when the current ledger cannot
+    // be synchronized. Validate the destination before changing the user's
+    // selection, rather than relying on the source-ledger mutation fence.
+    await buildWorkspaceSnapshot({
+        activeLedgerId: ledger.ledgerId,
+        activeLedgerName: ledger.name,
+        userId,
+    });
+
+    await persistActiveLedgerId(userId, ledger.ledgerId);
+
+    return ledger;
+}
+
+export async function updateLedger(
+    ledgerId: string,
+    input: LedgerUpdateInput,
+) {
+    const { entities } = getBudgetedSchema();
+    const existing = await requireLedgerRecord(ledgerId);
+    const name = normalizeLedgerName(input.name);
+
+    await assertLedgerNameIsAvailable({ ledgerId, name });
+
+    const record = {
+        ...existing,
+        name,
+        updatedAt: new Date().toISOString(),
+    } satisfies LedgerRecord;
+
+    await entities.ledgers.upsert(record).go();
+
+    return record;
+}
+
+export async function updateLedgerWithWorkspaceChanges(
+    ledgerId: string,
+    input: LedgerUpdateInput,
+) {
+    const existing = await requireLedgerRecord(ledgerId);
+    const ledger = await updateLedger(ledgerId, input);
+
+    return {
+        ledger,
+        workspaceChanges: [
+            createWorkspaceUpsertChange({
+                entityId: ledger.ledgerId,
+                entityType: "ledger",
+                previousRecord: existing,
+                record: ledger,
+            }),
+        ],
+    };
+}
+
+export async function archiveLedger(ledgerId: string) {
+    const { entities } = getBudgetedSchema();
+    const existing = await requireLedgerRecord(ledgerId);
+
+    if (existing.status === "archived") {
+        return existing;
+    }
+
+    const record = {
+        ...existing,
+        status: "archived" as const,
+        updatedAt: new Date().toISOString(),
+    } satisfies LedgerRecord;
+
+    await entities.ledgers.upsert(record).go();
+
+    return record;
+}
+
+export async function restoreLedger(ledgerId: string) {
+    const { entities } = getBudgetedSchema();
+    const existing = await requireLedgerRecord(ledgerId);
+
+    if (existing.status === "active") {
+        return existing;
+    }
+
+    const record = {
+        ...existing,
+        status: "active" as const,
+        updatedAt: new Date().toISOString(),
+    } satisfies LedgerRecord;
+
+    await entities.ledgers.upsert(record).go();
+
+    return record;
+}
+
+export async function setLedgerArchiveStatusWithWorkspaceChanges(input: {
+    action: "archive" | "restore";
+    ledgerId: string;
+}) {
+    const existing = await requireLedgerRecord(input.ledgerId);
+    const ledger =
+        input.action === "archive"
+            ? await archiveLedger(input.ledgerId)
+            : await restoreLedger(input.ledgerId);
+
+    return {
+        ledger,
+        workspaceChanges: [
+            createWorkspaceUpsertChange({
+                entityId: ledger.ledgerId,
+                entityType: "ledger",
+                previousRecord: existing,
+                record: ledger,
+            }),
+        ],
+    };
+}
+
+export async function bumpLedgerWorkspaceGeneration(ledgerId: string) {
+    const { service } = getBudgetedSchema();
+    const existing = await requireLedgerRecord(ledgerId);
+    const record = {
+        ...existing,
+        updatedAt: new Date().toISOString(),
+        workspaceGeneration: existing.workspaceGeneration + 1,
+        workspaceRevision: 0,
+    } satisfies LedgerRecord;
+
+    const workspaceState = await rebuildWorkspaceStateForGeneration({
+        ledger: record,
+        ledgerId,
+        workspaceGeneration: record.workspaceGeneration,
+        workspaceRevision: record.workspaceRevision,
+    });
+
+    await service.transaction
+        .write((transactionEntities) => [
+            transactionEntities.ledgers.put(record).commit(),
+            transactionEntities.workspaceStates
+                .put(toWorkspaceStateRecord(workspaceState))
+                .commit(),
+        ])
+        .go();
+
+    return record;
+}
+
+type DeleteKey = {
+    pk: string;
+    sk: string;
+};
+
+type LedgerScopedDeleteScanItem = {
+    pk?: string;
+    sk?: string;
+};
+
+async function listLedgerScopedDeleteKeys(ledgerId: string) {
+    const tableName = requireLedgerTableName();
+    const items = await listAllPaginatedItems(async ({ exclusiveStartKey }) => {
+        const result = await documentClient.send(
+            new ScanCommand({
+                TableName: tableName,
+                ExclusiveStartKey: exclusiveStartKey,
+                ProjectionExpression: "#pk, #sk, #ledgerId, #entity",
+                FilterExpression:
+                    "#ledgerId = :ledgerId AND #entity <> :ledgerEntity",
+                ExpressionAttributeNames: {
+                    "#entity": "__edb_e__",
+                    "#pk": "pk",
+                    "#sk": "sk",
+                    "#ledgerId": "ledgerId",
+                },
+                ExpressionAttributeValues: {
+                    ":ledgerEntity": "ledger",
+                    ":ledgerId": ledgerId,
+                },
+            }),
+        );
+
+        return {
+            items:
+                (result.Items as LedgerScopedDeleteScanItem[] | undefined) ??
+                [],
+            lastEvaluatedKey: result.LastEvaluatedKey,
+        };
+    });
+
+    const keys = items.flatMap((item): DeleteKey[] =>
+        typeof item.pk === "string" && typeof item.sk === "string"
+            ? [{ pk: item.pk, sk: item.sk }]
+            : [],
+    );
+
+    return { keys, tableName };
+}
+
+async function deletePlaidTransactionSyncsForLedger(ledgerId: string) {
+    const { entities } = getBudgetedSchema();
+    const syncRecords = await queryAllPages(
+        entities.plaidTransactionSyncs.query.bySync({ ledgerId }),
+        { consistent: true },
+    );
+
+    await Promise.all(
+        syncRecords.map((syncRecord) =>
+            entities.plaidTransactionSyncs
+                .delete({
+                    ledgerId,
+                    plaidTransactionSyncId:
+                        syncRecord.plaidTransactionSyncId,
+                })
+                .go(),
+        ),
+    );
+
+    return syncRecords.length;
+}
+
+export async function deleteLedgerScopedRecords(input: {
+    ledgerId: string;
+}) {
+    const { keys, tableName } =
+        await listLedgerScopedDeleteKeys(input.ledgerId);
+
+    await deleteItemsInBatches({ keys, tableName });
+
+    const syncRecordCount = await deletePlaidTransactionSyncsForLedger(
+        input.ledgerId,
+    );
+
+    return keys.length + syncRecordCount;
+}
+
+export async function deleteLedger(
+    userId: string,
+    ledgerId: string,
+    input: LedgerDeletionInput,
+) {
+    const { entities } = getBudgetedSchema();
+    const ledger = await requireLedgerRecord(ledgerId);
+
+    if (input.confirmationName.trim() !== ledger.name) {
+        throw new HttpError(
+            422,
+            "ledger_confirmation_mismatch",
+            "The confirmation name must match the ledger name.",
+        );
+    }
+
+    const deletedRecordCount = await deleteLedgerScopedRecords({
+        ledgerId: ledger.ledgerId,
+    });
+
+    await entities.ledgers
+        .delete({ workspaceId: GLOBAL_WORKSPACE_ID, ledgerId })
+        .go();
+
+    const user = await findUserAccountById(userId);
+
+    if (user?.activeLedgerId === ledger.ledgerId) {
+        const remainingLedgers = await listLedgerRecords();
+        const fallbackLedger =
+            remainingLedgers[0] ?? (await ensureDefaultLedger());
+
+        await persistActiveLedgerId(userId, fallbackLedger.ledgerId);
+    }
+
+    return {
+        deletedRecordCount,
+        ledger,
+    };
+}
+
+export async function getActiveLedgerContext(
+    user: Pick<UserAccountRecord, "activeLedgerId" | "userId">,
+): Promise<ActiveLedgerContext> {
+    const ledgers = await listLedgers();
+    const requestedLedger = user.activeLedgerId
+        ? ledgers.find((ledger) => ledger.ledgerId === user.activeLedgerId)
+        : undefined;
+    const activeLedger = requestedLedger ?? ledgers[0];
+
+    if (user.activeLedgerId !== activeLedger.ledgerId) {
+        await persistActiveLedgerId(user.userId, activeLedger.ledgerId);
+    }
+
+    return {
+        ledger: activeLedger,
+        ledgerId: activeLedger.ledgerId,
+        ledgerName: activeLedger.name,
+    };
+}

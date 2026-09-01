@@ -1,0 +1,8 @@
+From: Venmo <venmo@venmo.com>
+To: Forwarding User <forward@example.com>
+Subject: Sample Settlement Administrator paid you $4.67
+Message-ID: <settlement-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Sample Settlement Administrator paid you</h1><div>$</div><div>4</div><div>.</div><div>67</div><p>Your sample consumer settlement payment is now available in Venmo.</p><p>MONEY CREDITED TO YOUR VENMO ACCOUNT.</p><h2>TRANSACTION DETAILS</h2><div>DATE</div><div>May 19, 2026</div><div>TRANSACTION ID</div><div>settlement-provider-1</div><div>SENT TO</div><div>@sample</div></body></html>

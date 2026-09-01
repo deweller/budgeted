@@ -1,0 +1,15 @@
+{
+  "production": {
+    "webDomain": {
+      "name": "budgeted.example.com",
+      "dns": false,
+      "cert": "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+    },
+    "venmoEmail": {
+      "allowedForwarders": ["trusted-forwarder@example.com"],
+      "recipient": "venmo@aws.example.com",
+      "receiptRuleSetName": "EXISTING_ACTIVE_RULE_SET",
+      "afterRuleName": "EXISTING_RULE_NAME"
+    }
+  }
+}

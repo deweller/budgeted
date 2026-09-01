@@ -1,0 +1,8 @@
+From: Trusted Forwarder <trusted-forwarder@example.com>
+To: venmo@aws.example.com
+Subject: Fwd: You paid Sample Friend $35.00
+Message-ID: <forwarded-sent-sanitized@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><div>---------- Forwarded message ---------</div><div>From: Venmo &lt;venmo@venmo.com&gt;</div><div>Subject: You paid Sample Friend $35.00</div><hr><h1>You paid Sample Friend</h1><div>$</div><div>35</div><div>.</div><div>00</div><p>Shared dinner 🍕</p><a href="https://venmo.com/story/sanitized-forward">See transaction</a><h2>TRANSACTION DETAILS</h2><div>DATE</div><div>May 26, 2026</div><div>STATUS</div><div>Completed</div><div>TRANSACTION ID</div><div>forwarded-sent-provider-1</div><div>PAYMENT METHOD</div><div>SAMPLE BANK account ending in 1234</div><div>SENT FROM</div><div>@sample</div></body></html>

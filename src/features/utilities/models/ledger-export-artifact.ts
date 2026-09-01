@@ -1,0 +1,3 @@
+export const LEDGER_EXPORT_ARTIFACT_PREFIX = "ledger-exports/";
+export const LEDGER_EXPORT_ARTIFACT_EXPIRES_IN = "1 day";
+export const LEDGER_EXPORT_DOWNLOAD_URL_EXPIRES_IN_SECONDS = 10 * 60;

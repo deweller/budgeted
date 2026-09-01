@@ -1,0 +1,221 @@
+@import "tailwindcss" source(none);
+@source "../**/*.ts";
+@source "../**/*.tsx";
+
+/* Use Azureite as the blue base: #2a52be */
+
+:root {
+    --color-ink: #eef3ff;
+    --color-muted: #a7b4d6;
+    --color-surface: #060b19;
+    --color-panel: #0d1730;
+    --color-panel-strong: #091225;
+    --color-panel-elevated: #142044;
+    --color-popover: #1a2a5a;
+    --color-action-bar: #10255a;
+    --color-action-bar-border: #5d78d4;
+    --color-action-bar-control: #142b66;
+    --color-action-bar-control-hover: #10265b;
+    --color-action-bar-danger: #7f1d2d;
+    --color-action-bar-danger-hover: #991f35;
+    --color-action-bar-danger-border: #d96b7d;
+    --color-action-bar-danger-ink: #ffffff;
+    --color-action-bar-ink: #f3f6ff;
+    --color-action-bar-muted: #d1dcff;
+    --color-secondary-action: #313842;
+    --color-secondary-action-hover: #46505e;
+    --color-secondary-action-border: #647084;
+    --color-border: #28375f;
+    --color-field: #091226;
+    --color-field-border: #344878;
+    --color-accent-soft: #14295f;
+    --color-accent-ink: #2a52be;
+    --color-accent-ink-strong: #2147aa;
+    --color-accent-contrast: #c0ccff;
+    --color-accent-ring: rgba(42, 82, 190, 0.42);
+    --color-chart-trend-month-end: #e6b8ff;
+    --tone-error-surface: #321317;
+    --tone-error-surface-strong: #3d171d;
+    --tone-error-border: #8d3c47;
+    --tone-error-ink: #ffc1c8;
+    --tone-info-surface: #101f3d;
+    --tone-info-surface-strong: #142852;
+    --tone-info-border: #4568c5;
+    --tone-info-ink: #c0d0ff;
+    --tone-success-surface: #10261d;
+    --tone-success-surface-strong: #153025;
+    --tone-success-border: #2f7a56;
+    --tone-success-ink: #baf5d1;
+    --tone-money-zero-surface: #1f2633;
+    --tone-money-zero-ink: #dce6f2;
+    --tone-warning-surface: #2d2410;
+    --tone-warning-surface-strong: #392d14;
+    --tone-warning-border: #9b7d30;
+    --tone-warning-ink: #f5dc96;
+    --shadow-panel: 0 20px 50px -28px rgba(0, 0, 0, 0.8);
+    --shadow-action-bar: 0 -24px 70px -28px rgba(0, 0, 0, 0.85);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    background: var(--color-surface);
+    color-scheme: dark;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans), sans-serif;
+    background: var(--color-surface);
+    color: var(--color-ink);
+}
+
+a {
+    color: inherit;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+button:not(:disabled) {
+    cursor: pointer;
+}
+
+button:disabled,
+a[aria-disabled="true"] {
+    cursor: not-allowed;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+    color-scheme: dark;
+}
+
+::selection {
+    background: rgba(42, 82, 190, 0.35);
+}
+
+::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+}
+
+.money-positive {
+    color: var(--tone-success-ink);
+}
+
+.money-negative {
+    color: var(--tone-error-ink);
+}
+
+.money-zero {
+    color: var(--tone-money-zero-ink);
+}
+
+.transaction-selection-row > td {
+    --transaction-selection-left-shadow: inset 0 0 0 transparent;
+    --transaction-selection-right-shadow: inset 0 0 0 transparent;
+    --transaction-selection-top-shadow: inset 0 0 0 transparent;
+    --transaction-selection-bottom-shadow: inset 0 0 0 transparent;
+    box-shadow:
+        var(--transaction-selection-left-shadow),
+        var(--transaction-selection-right-shadow),
+        var(--transaction-selection-top-shadow),
+        var(--transaction-selection-bottom-shadow);
+}
+
+.transaction-selection-row > td:first-child {
+    --transaction-selection-left-shadow: inset 2px 0 0 var(--color-accent-ring);
+}
+
+.transaction-selection-row > td:last-child {
+    --transaction-selection-right-shadow: inset -2px 0 0
+        var(--color-accent-ring);
+}
+
+.transaction-selection-group-start > td {
+    --transaction-selection-top-shadow: inset 0 2px 0 var(--color-accent-ring);
+}
+
+.transaction-selection-group-end > td {
+    --transaction-selection-bottom-shadow: inset 0 -2px 0
+        var(--color-accent-ring);
+}
+
+@keyframes selection-action-bar-enter {
+    from {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes selection-action-bar-exit {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+}
+
+@keyframes feedback-toast-enter {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes feedback-toast-exit {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+.selection-action-bar-enter {
+    animation: selection-action-bar-enter 180ms ease-out both;
+}
+
+.selection-action-bar-exit {
+    animation: selection-action-bar-exit 180ms ease-in both;
+}
+
+.feedback-toast-enter {
+    animation: feedback-toast-enter 220ms ease-out both;
+}
+
+.feedback-toast-exit {
+    animation: feedback-toast-exit 220ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .selection-action-bar-enter,
+    .selection-action-bar-exit,
+    .feedback-toast-enter,
+    .feedback-toast-exit {
+        animation-duration: 1ms;
+    }
+}
