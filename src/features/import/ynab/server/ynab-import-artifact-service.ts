@@ -4,6 +4,7 @@ import {
     HeadObjectCommand,
     PutObjectCommand,
     S3Client,
+    type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { strFromU8, unzipSync } from "fflate";
@@ -16,7 +17,15 @@ const ARTIFACT_PREFIX = "ynab-imports/";
 const MAX_SOURCE_BYTES = 100 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024;
 const UPLOAD_URL_EXPIRES_SECONDS = 15 * 60;
-const s3 = new S3Client({});
+
+function createYnabImportS3Client(config: S3ClientConfig = {}) {
+    return new S3Client({
+        ...config,
+        requestChecksumCalculation: "WHEN_REQUIRED",
+    });
+}
+
+const s3 = createYnabImportS3Client();
 
 export type YnabImportSourceFile = {
     contentType: string;
@@ -161,3 +170,7 @@ export async function deleteYnabImportArtifacts(files: YnabImportSourceFile[]) {
         }),
     );
 }
+
+export const ynabImportArtifactTestInternals = {
+    createYnabImportS3Client,
+};

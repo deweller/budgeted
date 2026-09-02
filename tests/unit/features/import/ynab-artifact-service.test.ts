@@ -1,7 +1,12 @@
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 
-import { createYnabCsvExportFromZip } from "@/features/import/ynab/server/ynab-import-artifact-service";
+import {
+    createYnabCsvExportFromZip,
+    ynabImportArtifactTestInternals,
+} from "@/features/import/ynab/server/ynab-import-artifact-service";
 
 const plan = [
     '"Month","Category Group/Category","Category Group","Category","Assigned","Activity","Available"',
@@ -13,6 +18,30 @@ const register = [
 ].join("\n");
 
 describe("YNAB ZIP artifacts", () => {
+    it("does not sign an empty-body checksum into browser upload URLs", async () => {
+        const client = ynabImportArtifactTestInternals.createYnabImportS3Client({
+            credentials: {
+                accessKeyId: "test-access-key",
+                secretAccessKey: "test-secret-key",
+            },
+            region: "us-east-1",
+        });
+        const url = new URL(
+            await getSignedUrl(
+                client,
+                new PutObjectCommand({
+                    Bucket: "budgeted-test",
+                    ContentType: "text/csv",
+                    Key: "ynab-imports/test/source-plan",
+                }),
+                { expiresIn: 15 * 60 },
+            ),
+        );
+
+        expect(url.searchParams.has("x-amz-checksum-crc32")).toBe(false);
+        expect(url.searchParams.has("x-amz-sdk-checksum-algorithm")).toBe(false);
+    });
+
     it("finds the Plan and Register CSV files inside an export folder", () => {
         const result = createYnabCsvExportFromZip(
             zipSync({
