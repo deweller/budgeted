@@ -1776,7 +1776,7 @@ export function DashboardWorkspace({
                                                   {
                                                       disabled:
                                                           isClassificationBusy,
-                                                      key: "r",
+                                                      key: "i",
                                                       onAction: () => {
                                                           void rejectPendingClassification(
                                                               pendingCategoryClassification,
@@ -1958,7 +1958,7 @@ export function DashboardWorkspace({
                                                           {
                                                               disabled:
                                                                   isClassificationBusy,
-                                                              key: "r",
+                                                              key: "i",
                                                               label: "Ignore Suggestion",
                                                               onAction: () => {
                                                                   void rejectPendingClassification(

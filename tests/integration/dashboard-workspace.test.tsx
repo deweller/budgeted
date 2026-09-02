@@ -1206,7 +1206,7 @@ describe("dashboard workspace", () => {
             }),
         ).toBeInTheDocument();
         fireEvent.keyDown(window, { key: "ArrowDown" });
-        fireEvent.keyDown(window, { key: "r" });
+        fireEvent.keyDown(window, { key: "i" });
 
         expect(screen.getByText("Earlier merchant")).toBeInTheDocument();
 
