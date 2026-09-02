@@ -108,6 +108,38 @@ async function putJob(record: YnabImportJobRecord) {
     return record;
 }
 
+function nextJobUpdatedAt(record: Pick<YnabImportJobRecord, "updatedAt">) {
+    const currentTime = Date.now();
+    const previousTime = Date.parse(record.updatedAt);
+    const nextTime = Number.isFinite(previousTime)
+        ? Math.max(currentTime, previousTime + 1)
+        : currentTime;
+
+    return new Date(nextTime).toISOString();
+}
+
+async function putJobIfUnchanged(
+    existing: YnabImportJobRecord,
+    record: YnabImportJobRecord,
+) {
+    const result = await getBudgetedSchema().entities.ynabImportJobs
+        .put(record)
+        .where((attributes, operations) =>
+            operations.eq(attributes.updatedAt, existing.updatedAt),
+        )
+        .go({ returnOnConditionCheckFailure: true });
+
+    if (result.rejected) {
+        throw new HttpError(
+            409,
+            "ynab_import_changed",
+            "This YNAB import changed. Refresh and try again.",
+        );
+    }
+
+    return record;
+}
+
 export async function getYnabImportJobRecord(jobId: string) {
     const result = await getBudgetedSchema().entities.ynabImportJobs
         .get({ workspaceId: GLOBAL_WORKSPACE_ID, jobId })
@@ -218,7 +250,7 @@ export async function beginYnabImportPreview(
 ) {
     const existing = await requireOwnedJob(jobId, userId);
 
-    if (existing.status === "completed" || existing.status === "importing") {
+    if (existing.status !== "uploading" && existing.status !== "ready") {
         throw new HttpError(
             409,
             "ynab_import_state",
@@ -227,7 +259,6 @@ export async function beginYnabImportPreview(
     }
 
     await assertLedgerNameIsAvailable({ name: input.ledgerName });
-    const now = new Date().toISOString();
     const previewRevision = existing.previewRevision + 1;
     const record = withWorkerLease({
         ...existing,
@@ -241,10 +272,10 @@ export async function beginYnabImportPreview(
         previewRevision,
         status: "analyzing",
         summaryJson: undefined,
-        updatedAt: now,
+        updatedAt: nextJobUpdatedAt(existing),
     });
 
-    await putJob(record);
+    await putJobIfUnchanged(existing, record);
     return toPublicJob(record);
 }
 
@@ -277,10 +308,10 @@ export async function beginYnabImport(
         error: undefined,
         lastAction: "import",
         status: "importing",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nextJobUpdatedAt(existing),
     });
 
-    await putJob(record);
+    await putJobIfUnchanged(existing, record);
     return toPublicJob(record);
 }
 
@@ -306,10 +337,10 @@ export async function retryYnabImport(jobId: string, userId: string) {
                 : action === "analyze"
                   ? "analyzing"
                   : "failed",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nextJobUpdatedAt(existing),
     });
 
-    await putJob(record);
+    await putJobIfUnchanged(existing, record);
     return { action, job: toPublicJob(record) };
 }
 
@@ -324,14 +355,22 @@ export async function beginDiscardYnabImport(jobId: string, userId: string) {
         );
     }
 
+    if (existing.status === "analyzing" || existing.status === "importing") {
+        throw new HttpError(
+            409,
+            "ynab_import_busy",
+            "Wait for the current YNAB import work to finish before discarding it.",
+        );
+    }
+
     const record = withWorkerLease({
         ...existing,
         error: "Discarding YNAB import…",
         lastAction: "cleanup",
         status: "failed",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nextJobUpdatedAt(existing),
     });
-    await putJob(record);
+    await putJobIfUnchanged(existing, record);
     return record;
 }
 

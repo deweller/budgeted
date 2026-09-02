@@ -96,6 +96,12 @@ describe("YNAB importer", () => {
         expect(ynabImportTestInternals.parseMonthLabel("Jan 2025")).toBe(
             "2025-01",
         );
+        expect(ynabImportTestInternals.parseMonthLabel("Jul 2025")).toBe(
+            "2025-07",
+        );
+        expect(ynabImportTestInternals.parseMonthLabel("Dec 2025")).toBe(
+            "2025-12",
+        );
         expect(
             ynabImportTestInternals
                 .parseRegisterDate("01/31/2025")

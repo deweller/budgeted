@@ -40,6 +40,7 @@ import {
     GET as GET_IMPORTS,
     POST as CREATE_IMPORT,
 } from "@/app/api/utilities/ynab-imports/route";
+import { DELETE as DISCARD_IMPORT } from "@/app/api/utilities/ynab-imports/[jobId]/route";
 import { POST as PREVIEW_IMPORT } from "@/app/api/utilities/ynab-imports/[jobId]/preview/route";
 import { POST as START_IMPORT } from "@/app/api/utilities/ynab-imports/[jobId]/start/route";
 
@@ -147,5 +148,24 @@ describe("YNAB import routes", () => {
         expect((await response.json()).error.code).toBe(
             "ynab_import_preview_stale",
         );
+    });
+
+    it("does not invoke cleanup when an active import cannot be discarded", async () => {
+        mocks.beginDiscardYnabImport.mockRejectedValue(
+            new HttpError(
+                409,
+                "ynab_import_busy",
+                "Wait for the current YNAB import work to finish before discarding it.",
+            ),
+        );
+
+        const response = await DISCARD_IMPORT(
+            new Request("http://localhost/import", { method: "DELETE" }),
+            { params: Promise.resolve({ jobId: "job-1" }) },
+        );
+
+        expect(response.status).toBe(409);
+        expect((await response.json()).error.code).toBe("ynab_import_busy");
+        expect(mocks.invokeYnabImportWorker).not.toHaveBeenCalled();
     });
 });

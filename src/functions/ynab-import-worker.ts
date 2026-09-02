@@ -90,7 +90,11 @@ async function runImport(jobId: string) {
 async function cleanup(jobId: string) {
     const job = await getYnabImportJobRecord(jobId);
 
-    if (!job || job.status === "completed") {
+    if (
+        !job ||
+        job.status !== "failed" ||
+        job.lastAction !== "cleanup"
+    ) {
         return;
     }
 

@@ -121,6 +121,7 @@ describe("YNAB import worker", () => {
         mocks.getYnabImportJobRecord.mockResolvedValue({
             filesJson: "[]",
             jobId: "job-1",
+            lastAction: "cleanup",
             status: "failed",
             targetLedgerId: "ledger-target",
         });
@@ -132,5 +133,21 @@ describe("YNAB import worker", () => {
         });
         expect(mocks.deleteYnabImportArtifacts).toHaveBeenCalled();
         expect(mocks.deleteYnabImportJobRecord).toHaveBeenCalledWith("job-1");
+    });
+
+    it("ignores cleanup events for active imports", async () => {
+        mocks.getYnabImportJobRecord.mockResolvedValue({
+            filesJson: "[]",
+            jobId: "job-1",
+            lastAction: "import",
+            status: "importing",
+            targetLedgerId: "ledger-target",
+        });
+
+        await handler({ action: "cleanup", jobId: "job-1" });
+
+        expect(mocks.deleteLedgerScopedRecords).not.toHaveBeenCalled();
+        expect(mocks.deleteYnabImportArtifacts).not.toHaveBeenCalled();
+        expect(mocks.deleteYnabImportJobRecord).not.toHaveBeenCalled();
     });
 });
