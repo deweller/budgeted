@@ -66,6 +66,14 @@ declare module "sst" {
       "type": "sst.aws.Nextjs"
       "url": string
     }
+    "YnabImportArtifacts": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
+    "YnabImportWorker": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
   }
 }
 
