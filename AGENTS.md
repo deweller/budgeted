@@ -18,7 +18,7 @@ all differ from your training data. Read the relevant guide in
 
 ## Stack and Commands
 
-- Use Node.js 22+ and pnpm. This repository is pinned to `pnpm@10.33.0`.
+- Use Node.js 22+ and pnpm. This repository is pinned to `pnpm@11.25.0`.
 - `pnpm dev` runs the app through SST with linked infrastructure.
 - `pnpm dev:turbo` runs the Turbopack development server directly.
 - `pnpm dev:webpack` is the safe fallback when Turbopack state is suspect.
