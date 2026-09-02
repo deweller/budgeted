@@ -23,6 +23,14 @@ async function deleteRepositoryDatabase() {
     });
 }
 
+async function openBlockingDatabase(version: number) {
+    return new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(WORKSPACE_CACHE_DATABASE_NAME, version);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+    });
+}
+
 describe("workspace repository schema", () => {
     afterEach(async () => {
         const database = await getWorkspaceRepositoryDatabase();
@@ -62,5 +70,21 @@ describe("workspace repository schema", () => {
         expect(WORKSPACE_CACHE_SCHEMA_VERSION).not.toBe(
             WORKSPACE_CACHE_DATABASE_VERSION,
         );
+    });
+
+    it("stops waiting when an older browser context blocks a schema upgrade", async () => {
+        await deleteRepositoryDatabase();
+        const blockingDatabase = await openBlockingDatabase(
+            WORKSPACE_CACHE_DATABASE_VERSION - 1,
+        );
+
+        try {
+            await expect(
+                getWorkspaceRepositoryDatabase({ openTimeoutMs: 10 }),
+            ).rejects.toThrow(/blocked by another browser context/i);
+        } finally {
+            blockingDatabase.close();
+            resetWorkspaceRepositoryDatabaseForTests();
+        }
     });
 });
