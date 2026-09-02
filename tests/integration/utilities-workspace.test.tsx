@@ -1028,6 +1028,18 @@ describe("utilities workspace", () => {
             </FeedbackToastProvider>,
         );
 
+        expect(
+            screen.getByRole("heading", {
+                name: "Monthly budget funding sources",
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                "Choose the categories to use, in order, when you select Auto assign for a monthly budget. Available money moves from these categories to the categories being funded.",
+            ),
+        ).toBeInTheDocument();
+        expect(screen.queryByText("Auto assign defaults")).not.toBeInTheDocument();
+
         async function chooseSourceCategory(name: string) {
             const input = screen.getByRole("combobox", {
                 name: "Add source category",

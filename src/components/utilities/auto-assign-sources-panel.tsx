@@ -191,16 +191,13 @@ function AutoAssignSourcesEditor({
     return (
         <div className="grid gap-6">
             <div>
-                <p className={typographyClassNames.eyebrow}>
-                    Auto assign defaults
-                </p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-                    Funding sources
+                <h1 className="text-3xl font-semibold tracking-tight">
+                    Monthly budget funding sources
                 </h1>
                 <p className={`mt-3 max-w-3xl text-sm ${typographyClassNames.mutedBody}`}>
-                    Auto assign draws only from these categories in order and
-                    records those category-to-category movements in monthly
-                    allocation details.
+                    Choose the categories to use, in order, when you select
+                    Auto assign for a monthly budget. Available money moves
+                    from these categories to the categories being funded.
                 </p>
             </div>
 
