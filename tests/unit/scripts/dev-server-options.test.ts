@@ -18,6 +18,10 @@ let devServerOptions: {
             port?: string;
         },
     ) => Record<string, string>;
+    createSstDevEnv: (
+        env: Record<string, string>,
+        isInteractiveTerminal: boolean,
+    ) => Record<string, string>;
     formatDevServerUrl: (options: {
         hostname?: string;
         https?: boolean;
@@ -154,6 +158,22 @@ describe("dev server option parsing", () => {
         );
     });
 
+    it("rejects incomplete custom HTTPS certificate settings", () => {
+        const keyOnly = devServerOptions.parseDevServerArgs([], {
+            BUDGETED_DEV_HTTPS_KEY: "./certs/localhost-key.pem",
+        });
+        const certOnly = devServerOptions.parseDevServerArgs([], {
+            BUDGETED_DEV_HTTPS_CERT: "./certs/localhost.pem",
+        });
+
+        expect(() => devServerOptions.prepareDevServerOptions(keyOnly)).toThrow(
+            "BUDGETED_DEV_HTTPS_KEY and BUDGETED_DEV_HTTPS_CERT must be provided together.",
+        );
+        expect(() => devServerOptions.prepareDevServerOptions(certOnly)).toThrow(
+            "BUDGETED_DEV_HTTPS_KEY and BUDGETED_DEV_HTTPS_CERT must be provided together.",
+        );
+    });
+
     it("uses explicit dev server environment values", () => {
         const options = devServerOptions.parseDevServerArgs([], {
             BUDGETED_DEV_HOSTNAME: "127.0.0.1",
@@ -171,6 +191,21 @@ describe("dev server option parsing", () => {
                 NODE_ENV: "test",
                 PORT: "3010",
             });
+    });
+
+    it("uses an interactive terminal type for the SST multiplexer", () => {
+        expect(
+            devServerOptions.createSstDevEnv({ TERM: "dumb" }, true),
+        ).toEqual({ TERM: "xterm-256color" });
+        expect(devServerOptions.createSstDevEnv({}, true)).toEqual({
+            TERM: "xterm-256color",
+        });
+        expect(
+            devServerOptions.createSstDevEnv({ TERM: "screen-256color" }, true),
+        ).toEqual({ TERM: "screen-256color" });
+        expect(
+            devServerOptions.createSstDevEnv({ TERM: "dumb" }, false),
+        ).toEqual({ TERM: "dumb" });
     });
 
     it("parses .env.local HTTPS without requiring certificate paths", () => {
@@ -270,13 +305,11 @@ describe("dev server option parsing", () => {
 
             expect(prepared.httpsCert).toBe(path.join(
                 cwd,
-                ".local",
                 "certificates",
                 "localhost.pem",
             ));
             expect(prepared.httpsKey).toBe(path.join(
                 cwd,
-                ".local",
                 "certificates",
                 "localhost-key.pem",
             ));
@@ -359,6 +392,86 @@ describe("dev server option parsing", () => {
         expect(devServerOptions.formatDevServerUrl(options)).toBe(
             "http://localhost:3000",
         );
+    });
+
+    itWithOpenSsl("reuses a valid local certificate when mkcert is unavailable", () => {
+        const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "budgeted-dev-env-"));
+
+        try {
+            const caDir = path.join(cwd, "ca");
+            const rootCA = path.join(caDir, "rootCA.pem");
+            const rootCAKey = path.join(caDir, "rootCA-key.pem");
+            const mkcert = path.join(cwd, "mkcert");
+
+            fs.mkdirSync(caDir, { recursive: true });
+            execFileSync("openssl", ["genrsa", "-out", rootCAKey, "2048"], {
+                stdio: "ignore",
+            });
+            execFileSync(
+                "openssl",
+                [
+                    "req",
+                    "-x509",
+                    "-new",
+                    "-nodes",
+                    "-key",
+                    rootCAKey,
+                    "-sha256",
+                    "-days",
+                    "1",
+                    "-subj",
+                    "/CN=Budgeted Test Root",
+                    "-out",
+                    rootCA,
+                ],
+                { stdio: "ignore" },
+            );
+            fs.writeFileSync(
+                mkcert,
+                [
+                    "#!/usr/bin/env node",
+                    "if (process.argv[2] === '-CAROOT') {",
+                    `  console.log(${JSON.stringify(caDir)});`,
+                    "  process.exit(0);",
+                    "}",
+                    "process.exit(42);",
+                    "",
+                ].join("\n"),
+            );
+            fs.chmodSync(mkcert, 0o755);
+
+            const options = devServerOptions.parseDevServerArgs([], {
+                BUDGETED_DEV_HOSTNAME: "budgeted.ldev",
+                BUDGETED_DEV_HTTPS: "1",
+            });
+            devServerOptions.prepareDevServerOptions(options, {
+                cwd,
+                mkcertBinaryPath: mkcert,
+                opensslBinaryPath: "openssl",
+            });
+
+            const prepared = devServerOptions.prepareDevServerOptions(options, {
+                cwd,
+                mkcertBinaryPath: path.join(cwd, "missing-mkcert"),
+            });
+
+            expect(prepared).toMatchObject({
+                https: true,
+                httpsCa: undefined,
+                httpsCert: path.join(
+                    cwd,
+                    "certificates",
+                    "localhost.pem",
+                ),
+                httpsKey: path.join(
+                    cwd,
+                    "certificates",
+                    "localhost-key.pem",
+                ),
+            });
+        } finally {
+            fs.rmSync(cwd, { force: true, recursive: true });
+        }
     });
 
     it("formats HTTPS wildcard hosts as localhost URLs", () => {

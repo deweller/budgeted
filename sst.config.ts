@@ -20,6 +20,7 @@ type ManagedDomain = {
 async function getLocalDevConfig() {
     const {
         buildNextDevArgs,
+        createDevServerEnv,
         formatDevServerUrl,
         loadLocalDevServerEnv,
         parseDevServerArgs,
@@ -28,12 +29,26 @@ async function getLocalDevConfig() {
     const options = prepareDevServerOptions(
         parseDevServerArgs([], loadLocalDevServerEnv()),
     );
+    const devEnvironment = createDevServerEnv({}, options) as Record<
+        string,
+        string
+    >;
+    const environmentAssignments = Object.entries(devEnvironment)
+        .map(([name, value]) => `${name}=${shellQuote(value)}`)
+        .join(" ");
 
     return {
-        command: buildNextDevArgs(["pnpm", "dev:turbo", "--"], options)
-            .map(shellQuote)
-            .join(" "),
-        url: formatDevServerUrl(options),
+        dev: {
+            command: `${environmentAssignments} ${buildNextDevArgs([
+                "pnpm",
+                "dev:turbo",
+                "--",
+            ], options)
+                .map(shellQuote)
+                .join(" ")}`,
+            url: formatDevServerUrl(options),
+        },
+        environment: devEnvironment,
     };
 }
 
@@ -123,6 +138,7 @@ export default $config({
         const stageConfig = resolveStageConfig(budgetedConfig, $app.stage);
         const webDomain = managedDomain(stageConfig.webDomain);
         const integrationEnvironment = getIntegrationEnvironment(stageConfig);
+        const localDevConfig = await getLocalDevConfig();
 
         if (stageConfig.infrastructure.assetLifecycle.enabled) {
             new aws.ecr.LifecyclePolicy("SstAssetLifecyclePolicy", {
@@ -182,10 +198,11 @@ export default $config({
             timeout: stageConfig.infrastructure.ynabImportWorker.timeout,
         });
         const web = new sst.aws.Nextjs("Web", {
-            dev: await getLocalDevConfig(),
+            dev: localDevConfig.dev,
             ...(webDomain ? { domain: webDomain } : {}),
             environment: {
                 ...integrationEnvironment,
+                ...($dev ? localDevConfig.environment : {}),
                 ...(venmoEmailConfig
                     ? { VENMO_EMAIL_RECIPIENT: venmoEmailConfig.recipient }
                     : {}),

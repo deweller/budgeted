@@ -11,6 +11,7 @@
 !.yarn/versions
 .pnpm-store/
 /.local/
+/certificates
 
 # testing
 /coverage

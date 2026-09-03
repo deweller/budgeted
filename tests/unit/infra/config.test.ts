@@ -158,4 +158,40 @@ describe("Budgeted infrastructure configuration", () => {
             }),
         ).toThrow();
     });
+
+    it("rejects function settings that SST cannot accept", () => {
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        infrastructure: {
+                            automation: { timeout: "1 hour" },
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        infrastructure: {
+                            ynabImportWorker: { memory: "2 gb" },
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        infrastructure: {
+                            automation: { schedule: "every 2 minutes" },
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+    });
 });

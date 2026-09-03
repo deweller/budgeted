@@ -7,6 +7,39 @@ const nonEmptyStringSchema = z.string().trim().min(1);
 const positiveIntegerSchema = z.number().int().positive();
 const nonNegativeIntegerSchema = z.number().int().nonnegative();
 
+type SstFunctionTimeout = `${number} ${
+    | "second"
+    | "seconds"
+    | "minute"
+    | "minutes"}`;
+type SstFunctionMemory = `${number} ${"MB" | "GB"}`;
+type SstSchedule = `rate(${string})` | `cron(${string})` | `at(${string})`;
+
+const sstFunctionTimeoutSchema = z
+    .string()
+    .trim()
+    .regex(
+        /^\d+(?:\.\d+)? (?:second|seconds|minute|minutes)$/,
+        'Expected an SST function duration such as "15 minutes".',
+    )
+    .transform((value): SstFunctionTimeout => value as SstFunctionTimeout);
+const sstFunctionMemorySchema = z
+    .string()
+    .trim()
+    .regex(
+        /^\d+(?:\.\d+)? (?:MB|GB)$/,
+        'Expected an SST function memory size such as "2 GB".',
+    )
+    .transform((value): SstFunctionMemory => value as SstFunctionMemory);
+const sstScheduleSchema = z
+    .string()
+    .trim()
+    .regex(
+        /^(?:rate|cron|at)\(.+\)$/,
+        'Expected an SST schedule such as "cron(0/2 * * * ? *)".',
+    )
+    .transform((value): SstSchedule => value as SstSchedule);
+
 const domainConfigSchema = z.union([
     nonEmptyStringSchema,
     z
@@ -66,21 +99,21 @@ const stageConfigSchema = z
                     .object({
                         enabled: z.boolean().optional(),
                         retries: nonNegativeIntegerSchema.optional(),
-                        schedule: nonEmptyStringSchema.optional(),
-                        timeout: nonEmptyStringSchema.optional(),
+                        schedule: sstScheduleSchema.optional(),
+                        timeout: sstFunctionTimeoutSchema.optional(),
                     })
                     .strict()
                     .optional(),
                 web: z
                     .object({
-                        timeout: nonEmptyStringSchema.optional(),
+                        timeout: sstFunctionTimeoutSchema.optional(),
                     })
                     .strict()
                     .optional(),
                 ynabImportWorker: z
                     .object({
-                        memory: nonEmptyStringSchema.optional(),
-                        timeout: nonEmptyStringSchema.optional(),
+                        memory: sstFunctionMemorySchema.optional(),
+                        timeout: sstFunctionTimeoutSchema.optional(),
                     })
                     .strict()
                     .optional(),
@@ -155,15 +188,15 @@ export type ResolvedStageConfig = {
         automation: {
             enabled: boolean;
             retries: number;
-            schedule: string;
-            timeout: string;
+            schedule: SstSchedule;
+            timeout: SstFunctionTimeout;
         };
         web: {
-            timeout: string;
+            timeout: SstFunctionTimeout;
         };
         ynabImportWorker: {
-            memory: string;
-            timeout: string;
+            memory: SstFunctionMemory;
+            timeout: SstFunctionTimeout;
         };
     };
     integrations: {

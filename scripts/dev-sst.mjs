@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import process from "node:process";
 import {
     createDevServerEnv,
+    createSstDevEnv,
     loadLocalDevServerEnv,
     parseDevServerArgs,
     prepareDevServerOptions,
@@ -30,6 +31,10 @@ const isRunningInsideSstDev =
     process.env.SST_DEV === "true" ||
     process.env.SST_LIVE === "true" ||
     Object.keys(process.env).some((key) => key.startsWith("SST_RESOURCE_"));
+const sstDevEnv = createSstDevEnv(
+    devServerEnv,
+    Boolean(process.stdin.isTTY && process.stdout.isTTY),
+);
 
 const child = isRunningInsideSstDev
     ? spawn(process.execPath, ["./scripts/dev-turbo.mjs", ...forwardedArgs], {
@@ -39,7 +44,7 @@ const child = isRunningInsideSstDev
       })
     : spawn(pnpmBin, ["exec", "sst", "dev", ...forwardedArgs], {
           cwd: process.cwd(),
-          env: devServerEnv,
+          env: sstDevEnv,
           stdio: "inherit",
       });
 

@@ -13,7 +13,8 @@ const devHttpsCertEnvName = "BUDGETED_DEV_HTTPS_CERT";
 const devHttpsCaEnvName = "BUDGETED_DEV_HTTPS_CA";
 const defaultDevPort = "3000";
 const defaultUrlHostname = "localhost";
-const defaultHttpsCertificatePathSegments = [".local", "certificates"];
+const defaultInteractiveTerminal = "xterm-256color";
+const defaultHttpsCertificatePathSegments = ["certificates"];
 const localEnvFileName = ".env.local";
 const mkcertVersion = "v1.4.4";
 const opensslBinaryName = "openssl";
@@ -171,47 +172,78 @@ export function createDevServerEnv(env, options) {
     return nextEnv;
 }
 
-export function prepareDevServerOptions(options, settings = {}) {
+export function createSstDevEnv(env, isInteractiveTerminal) {
+    const nextEnv = { ...env };
+
     if (
-        !options.https ||
-        options.httpsKey ||
-        options.httpsCert
+        isInteractiveTerminal &&
+        (!nextEnv.TERM || nextEnv.TERM === "dumb")
     ) {
+        nextEnv.TERM = defaultInteractiveTerminal;
+    }
+
+    return nextEnv;
+}
+
+export function prepareDevServerOptions(options, settings = {}) {
+    if (!options.https) {
         return options;
     }
 
-    const mkcertBinaryPath =
-        settings.mkcertBinaryPath ?? getCachedMkcertBinaryPath();
+    if (Boolean(options.httpsKey) !== Boolean(options.httpsCert)) {
+        throw new Error(
+            `${devHttpsKeyEnvName} and ${devHttpsCertEnvName} must be provided together.`,
+        );
+    }
 
-    if (!mkcertBinaryPath || !fs.existsSync(mkcertBinaryPath)) {
+    if (options.httpsKey && options.httpsCert) {
         return options;
     }
 
     const cwd = settings.cwd ?? process.cwd();
     const certificatePaths = getDefaultHttpsCertificatePaths(cwd);
     const host = getCertificateValidationHost(options.hostname);
+    const mkcertBinaryPath =
+        settings.mkcertBinaryPath ?? getCachedMkcertBinaryPath();
 
-    if (!isUsableCertificate(certificatePaths, host)) {
-        generateDefaultHttpsCertificate({
-            certificatePaths,
-            mkcertExecFile: settings.execFileSync ?? execFileSync,
-            hostname: options.hostname,
+    if (isUsableCertificate(certificatePaths, host)) {
+        return withDefaultHttpsCertificate(options, certificatePaths, {
+            execFile: settings.execFileSync ?? execFileSync,
             mkcertBinaryPath,
-            opensslBinaryPath: settings.opensslBinaryPath ?? opensslBinaryName,
-            opensslExecFile: settings.opensslExecFileSync ?? execFileSync,
         });
     }
+
+    if (!mkcertBinaryPath || !fs.existsSync(mkcertBinaryPath)) {
+        return options;
+    }
+
+    generateDefaultHttpsCertificate({
+        certificatePaths,
+        mkcertExecFile: settings.execFileSync ?? execFileSync,
+        hostname: options.hostname,
+        mkcertBinaryPath,
+        opensslBinaryPath: settings.opensslBinaryPath ?? opensslBinaryName,
+        opensslExecFile: settings.opensslExecFileSync ?? execFileSync,
+    });
 
     if (!isUsableCertificate(certificatePaths, host)) {
         return options;
     }
 
+    return withDefaultHttpsCertificate(options, certificatePaths, {
+        execFile: settings.execFileSync ?? execFileSync,
+        mkcertBinaryPath,
+    });
+}
+
+function withDefaultHttpsCertificate(options, certificatePaths, settings) {
     return {
         ...options,
-        httpsCa: getMkcertRootCA({
-            execFile: settings.execFileSync ?? execFileSync,
-            mkcertBinaryPath,
-        }),
+        httpsCa:
+            settings.mkcertBinaryPath &&
+            fs.existsSync(settings.mkcertBinaryPath)
+                ? getMkcertRootCA(settings)
+                : undefined,
         httpsCert: certificatePaths.cert,
         httpsKey: certificatePaths.key,
     };
