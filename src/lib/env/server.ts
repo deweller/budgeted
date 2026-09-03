@@ -8,7 +8,7 @@ const runtimeServerEnvSchema = z.object({
         .default("development"),
     authSecret: z
         .string()
-        .min(32, "AUTH_SECRET must be at least 32 characters."),
+        .min(32, "The linked SST AuthSecret must be at least 32 characters."),
 });
 
 const testAuthSecret = "budgeted-test-auth-secret-32-characters-minimum";
@@ -21,8 +21,6 @@ export function resolveNodeEnv(env: NodeJS.ProcessEnv = process.env) {
 
 export function resolveAuthSecret(env: NodeJS.ProcessEnv = process.env) {
     return (
-        env.AUTH_SECRET ??
-        env.NEXTAUTH_SECRET ??
         getLinkedSecret("AuthSecret") ??
         (env.NODE_ENV === "test" ? testAuthSecret : undefined)
     );

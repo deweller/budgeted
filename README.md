@@ -20,17 +20,15 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Set at least these values in `.env.local`:
-
-- `AUTH_SECRET`: 32+ characters for Auth.js JWT signing
-
-SST-linked development also expects the auth secret to exist in the selected stage. Configure it explicitly before running `pnpm dev`:
+Runtime authentication accepts only the SST-linked `AuthSecret`. Configure a
+random value of at least 32 characters for each stage before running the app:
 
 ```bash
-pnpm exec sst secret set AuthSecret "$AUTH_SECRET" --stage <stage>
+pnpm exec sst secret set AuthSecret '<random-32-plus-character-secret>' --stage <stage>
 ```
 
-If you are not running through SST locally, set `APP_TABLE_NAME` to a reachable ledger table.
+`AUTH_SECRET` and `NEXTAUTH_SECRET` environment variables are intentionally not
+runtime fallbacks. Authenticated development must run with SST-linked resources.
 
 Create the first shared-workspace user with:
 
@@ -41,27 +39,29 @@ pnpm seed:user -- --email <email> --password <password> --role super --stage <st
 ## Development commands
 
 - `pnpm dev`: runs the app through `sst dev` with linked infrastructure
-- `pnpm dev:turbo`: runs Next.js directly with Turbopack
-- `pnpm dev:webpack`: runs the safe webpack fallback
+- `pnpm dev:turbo`: internal Turbopack runner; requires SST resource linkage
+- `pnpm dev:webpack`: diagnostic webpack runner; requires SST resource linkage
 - `pnpm seed:user`: creates or updates a shared-workspace user
 
-The local host and port can be set with Next-style flags on both direct and SST-backed dev commands:
+The local host and port can be set with Next-style flags on the supported
+SST-backed development command:
 
 ```bash
 pnpm dev -- --hostname 127.0.0.1 --port 3005
-pnpm dev:turbo -- --hostname 127.0.0.1 --port 3005
 ```
 
 Local HTTPS uses the same Next dev flags:
 
 ```bash
 pnpm dev -- --experimental-https
-pnpm dev:turbo -- --experimental-https
 ```
 
 The same settings can be supplied in `.env.local` or the shell as `BUDGETED_DEV_HOSTNAME`, `BUDGETED_DEV_PORT`, and `BUDGETED_DEV_HTTPS=1`. With only `BUDGETED_DEV_HTTPS=1`, the dev wrapper prepares local mkcert files when needed and starts Next.js with its built-in HTTPS server. `PORT` is still accepted for the port. Command-line flags take precedence over environment values. Custom local certificates are optional; use `BUDGETED_DEV_HTTPS_KEY`, `BUDGETED_DEV_HTTPS_CERT`, and optionally `BUDGETED_DEV_HTTPS_CA` when needed.
 
-When Turbopack state gets corrupted, clear `.next/dev` before retrying. The repo keeps `pnpm dev:webpack` as a fallback for direct Next.js development, but the default path is SST-backed development.
+When Turbopack state gets corrupted, clear `.next/dev` before retrying. The repo
+keeps `pnpm dev:webpack` as a linked-resource fallback, but the supported entry
+point is SST-backed `pnpm dev`. Running either Next.js wrapper outside an
+SST-linked environment does not provide application authentication.
 
 `pnpm dev` does not create or update SST secrets. Manage stage secrets with `pnpm exec sst secret set ...` or `pnpm exec sst secret load ...` before starting SST-backed development.
 
@@ -74,14 +74,21 @@ When Turbopack state gets corrupted, clear `.next/dev` before retrying. The repo
 
 Managed-local Playwright runs default to the `e2e` SST stage so browser tests use a separate DynamoDB table from normal development. Before each managed run, Playwright global setup resets that linked table with the shared reset executor, preserving user accounts and clearing budget/workspace data. The command can take a while because it may need to start `sst dev`; use it only when browser-level validation is needed.
 
-For normal local browser validation, keep `AUTH_SECRET`, `E2E_USER_EMAIL`, and `E2E_USER_PASSWORD` in `.env.local` and run:
+For managed local browser validation, keep `E2E_AUTH_SECRET`,
+`E2E_USER_EMAIL`, and `E2E_USER_PASSWORD` in `.env.local` and run:
 
 ```bash
 pnpm test:e2e
 pnpm test:e2e -- tests/e2e/persistence.spec.ts
 ```
 
-When the E2E SST stage does not already have `AuthSecret`, `pnpm test:e2e` loads it from `.env.local` or the current shell environment before starting `sst dev`. The test user is seeded with `pnpm seed:user` from `E2E_USER_EMAIL` and `E2E_USER_PASSWORD`, and Playwright global setup resets the linked table before creating the isolated E2E ledger. To override the isolated stage intentionally, pass `--stage <stage>` with `E2E_ALLOW_NON_E2E_RESET=1`.
+`pnpm test:e2e` loads `E2E_AUTH_SECRET` into the E2E stage as its linked
+`AuthSecret` before starting `sst dev`. The application never reads
+`E2E_AUTH_SECRET` directly. The test user is seeded with `pnpm seed:user` from
+`E2E_USER_EMAIL` and `E2E_USER_PASSWORD`, and Playwright global setup resets the
+linked table before creating the isolated E2E ledger. To override the isolated
+stage intentionally, pass `--stage <stage>` with
+`E2E_ALLOW_NON_E2E_RESET=1`.
 
 If you already have a compatible server running, set `PLAYWRIGHT_BASE_URL` and keep the same `E2E_USER_EMAIL` and `E2E_USER_PASSWORD` values available for authenticated browser specs.
 

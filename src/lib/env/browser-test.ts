@@ -93,9 +93,9 @@ function buildPrerequisite(
                 code,
                 scope,
                 message:
-                    "Managed local browser validation is missing AUTH_SECRET.",
+                    "Managed local browser validation is missing the linked SST AuthSecret.",
                 recovery:
-                    "Set AUTH_SECRET in .env.local, export NEXTAUTH_SECRET, or link the AuthSecret resource before running Playwright.",
+                    "Configure AuthSecret for the E2E SST stage before running Playwright.",
             };
         case "userEmail":
             return {
@@ -158,7 +158,7 @@ export function resolveBrowserTestEnvironment(
     const userPassword = env.E2E_USER_PASSWORD;
     const ledgerTableName = getLedgerTableName();
 
-    const startupPrerequisites = authSecret
+    const startupPrerequisites = mode !== "managedLocal" || authSecret
         ? []
         : [buildPrerequisite("authSecret", "startup")];
 

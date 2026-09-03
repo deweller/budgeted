@@ -16,6 +16,7 @@ describe("browser test environment resolution", () => {
         process.env = { ...originalEnv, NODE_ENV: "development" };
         delete process.env.AUTH_SECRET;
         delete process.env.NEXTAUTH_SECRET;
+        delete process.env.E2E_AUTH_SECRET;
         delete process.env.E2E_USER_EMAIL;
         delete process.env.E2E_USER_PASSWORD;
         delete process.env.PLAYWRIGHT_BASE_URL;
@@ -46,12 +47,13 @@ describe("browser test environment resolution", () => {
         expect(
             resolution.authenticatedPrerequisites.map(({ code }) => code),
         ).toEqual(["userEmail", "userPassword", "workspaceBackend"]);
-        expect(getBrowserTestStartupError(resolution)).toContain("AUTH_SECRET");
+        expect(getBrowserTestStartupError(resolution)).toContain(
+            "linked SST AuthSecret",
+        );
     });
 
     it("does not auto-load local env for caller-managed runs and does not require a local backend", async () => {
         process.env.PLAYWRIGHT_BASE_URL = "http://127.0.0.1:3000";
-        process.env.AUTH_SECRET = "caller-managed-auth-secret-32-characters";
         const envLoader = vi.fn();
 
         const { resolveBrowserTestEnvironment } = await loadBrowserTestModule();
@@ -67,12 +69,13 @@ describe("browser test environment resolution", () => {
     });
 
     it("becomes bootstrap-ready when managed-local prerequisites are satisfied", async () => {
-        process.env.AUTH_SECRET = "managed-local-auth-secret-32-characters";
         process.env.E2E_USER_EMAIL = "test-user@example.com";
         process.env.E2E_USER_PASSWORD = "change-me-please";
         process.env.APP_TABLE_NAME = "budgeted-local-ledger";
 
-        const { resolveBrowserTestEnvironment } = await loadBrowserTestModule();
+        const { resolveBrowserTestEnvironment } = await loadBrowserTestModule({
+            AuthSecret: { value: "managed-local-auth-secret-32-characters" },
+        });
 
         const resolution = resolveBrowserTestEnvironment();
 
@@ -84,13 +87,14 @@ describe("browser test environment resolution", () => {
     it("treats wrapper-managed SST runs as managed-local even with a base URL", async () => {
         process.env.PLAYWRIGHT_BASE_URL = "https://budgeted.ldev:5187";
         process.env.PLAYWRIGHT_MANAGED_SST = "1";
-        process.env.AUTH_SECRET = "managed-local-auth-secret-32-characters";
         process.env.E2E_USER_EMAIL = "test-user@example.com";
         process.env.E2E_USER_PASSWORD = "change-me-please";
         process.env.APP_TABLE_NAME = "budgeted-local-ledger";
         const envLoader = vi.fn();
 
-        const { resolveBrowserTestEnvironment } = await loadBrowserTestModule();
+        const { resolveBrowserTestEnvironment } = await loadBrowserTestModule({
+            AuthSecret: { value: "managed-local-auth-secret-32-characters" },
+        });
 
         const resolution = resolveBrowserTestEnvironment({ envLoader });
 
@@ -102,8 +106,6 @@ describe("browser test environment resolution", () => {
 
     it("formats authenticated skip guidance with actionable recovery steps", async () => {
         process.env.PLAYWRIGHT_BASE_URL = "http://127.0.0.1:3000";
-        process.env.AUTH_SECRET = "caller-managed-auth-secret-32-characters";
-
         const {
             getBrowserTestAuthenticatedSkipReason,
             resolveBrowserTestEnvironment,
@@ -119,7 +121,6 @@ describe("browser test environment resolution", () => {
 
     it("uses E2E user credentials for caller-managed authenticated runs", async () => {
         process.env.PLAYWRIGHT_BASE_URL = "http://127.0.0.1:3000";
-        process.env.AUTH_SECRET = "caller-managed-auth-secret-32-characters";
         process.env.E2E_USER_EMAIL = "override@example.com";
         process.env.E2E_USER_PASSWORD = "override-password";
 

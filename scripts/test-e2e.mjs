@@ -95,19 +95,13 @@ function resolveLocalSecrets() {
     const parsed = fs.existsSync(envLocalPath)
         ? parseEnvFile(envLocalPath)
         : {};
-    const fromProcess = {
-        AUTH_SECRET: process.env.AUTH_SECRET,
-        E2E_USER_EMAIL: process.env.E2E_USER_EMAIL,
-        E2E_USER_PASSWORD: process.env.E2E_USER_PASSWORD,
+    const authSecrets = {
+        E2E_AUTH_SECRET:
+            process.env.E2E_AUTH_SECRET ?? parsed.E2E_AUTH_SECRET,
+        E2E_USER_EMAIL: process.env.E2E_USER_EMAIL ?? parsed.E2E_USER_EMAIL,
+        E2E_USER_PASSWORD:
+            process.env.E2E_USER_PASSWORD ?? parsed.E2E_USER_PASSWORD,
     };
-    const fromFile = {
-        AUTH_SECRET: parsed.AUTH_SECRET,
-        E2E_USER_EMAIL: parsed.E2E_USER_EMAIL,
-        E2E_USER_PASSWORD: parsed.E2E_USER_PASSWORD,
-    };
-    const authSecrets = Object.values(fromProcess).every(Boolean)
-        ? fromProcess
-        : fromFile;
 
     if (!Object.values(authSecrets).every(Boolean)) {
         return null;
@@ -141,30 +135,6 @@ function resolveLocalSecrets() {
     };
 }
 
-function listConfiguredSecrets() {
-    const result = spawnSync(
-        pnpmBin,
-        ["exec", "sst", "secret", "list", ...sstArgs],
-        {
-            cwd: process.cwd(),
-            encoding: "utf8",
-        },
-    );
-
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-
-    if (result.status === 0) {
-        return true;
-    }
-
-    if (/No secrets found/i.test(output)) {
-        return false;
-    }
-
-    process.stderr.write(output);
-    process.exit(result.status ?? 1);
-}
-
 function loadLocalSecrets(localSecrets) {
     const secretFilePath = path.join(
         os.tmpdir(),
@@ -174,7 +144,7 @@ function loadLocalSecrets(localSecrets) {
     fs.writeFileSync(
         secretFilePath,
         [
-            `AuthSecret=${localSecrets.AUTH_SECRET}`,
+            `AuthSecret=${localSecrets.E2E_AUTH_SECRET}`,
             `AmazonOrderScraperApiToken=${localSecrets.AMAZON_ORDER_SCRAPER_API_TOKEN}`,
             `AmazonOrderScraperApiUrl=${localSecrets.AMAZON_ORDER_SCRAPER_API_URL}`,
             `GoogleGenerativeAiApiKey=${localSecrets.GOOGLE_GENERATIVE_AI_API_KEY}`,
@@ -205,27 +175,30 @@ function loadLocalSecrets(localSecrets) {
 }
 
 function ensureSstStageSecrets() {
-    const hasConfiguredSecrets = listConfiguredSecrets();
     const localSecrets = resolveLocalSecrets();
 
-    if (!hasConfiguredSecrets && !localSecrets) {
+    if (!localSecrets) {
         process.stderr.write(
             [
-                "pnpm test:e2e requires AuthSecret, E2E_USER_EMAIL, and E2E_USER_PASSWORD.",
-                "Add them to .env.local or export AUTH_SECRET, E2E_USER_EMAIL, and E2E_USER_PASSWORD before retrying.",
+                "pnpm test:e2e requires E2E_AUTH_SECRET, E2E_USER_EMAIL, and E2E_USER_PASSWORD.",
+                "Add them to .env.local or export them before retrying.",
                 "External integration secrets are loaded from matching env vars when present; otherwise test-safe placeholders are used.",
-                "You can also seed the current stage manually with `pnpm exec sst secret load .env.local --stage <stage>`.",
                 "",
             ].join("\n"),
         );
         process.exit(1);
     }
 
-    if (localSecrets) {
-        process.env.E2E_USER_EMAIL = localSecrets.E2E_USER_EMAIL;
-        process.env.E2E_USER_PASSWORD = localSecrets.E2E_USER_PASSWORD;
-        loadLocalSecrets(localSecrets);
+    if (localSecrets.E2E_AUTH_SECRET.length < 32) {
+        process.stderr.write(
+            "E2E_AUTH_SECRET must be at least 32 characters.\n",
+        );
+        process.exit(1);
     }
+
+    process.env.E2E_USER_EMAIL = localSecrets.E2E_USER_EMAIL;
+    process.env.E2E_USER_PASSWORD = localSecrets.E2E_USER_PASSWORD;
+    loadLocalSecrets(localSecrets);
 }
 
 function runPnpm(args, env = process.env) {
@@ -843,13 +816,11 @@ function requestAppUserBootstrap(appUrl, authSecret) {
 async function bootstrapUserThroughApp(appUrl) {
     const localSecrets = resolveLocalSecrets();
     const authSecret =
-        process.env.AUTH_SECRET ??
-        process.env.NEXTAUTH_SECRET ??
-        localSecrets?.AUTH_SECRET;
+        process.env.E2E_AUTH_SECRET ?? localSecrets?.E2E_AUTH_SECRET;
 
     if (!authSecret) {
         throw new Error(
-            "Unable to bootstrap the test user through the app without AUTH_SECRET.",
+            "Unable to bootstrap the test user through the app without E2E_AUTH_SECRET.",
         );
     }
 

@@ -20,8 +20,10 @@ all differ from your training data. Read the relevant guide in
 
 - Use Node.js 22+ and pnpm. This repository is pinned to `pnpm@11.25.0`.
 - `pnpm dev` runs the app through SST with linked infrastructure.
-- `pnpm dev:turbo` runs the Turbopack development server directly.
-- `pnpm dev:webpack` is the safe fallback when Turbopack state is suspect.
+- `pnpm dev:turbo` is the internal Turbopack runner and requires SST resource
+  linkage.
+- `pnpm dev:webpack` is a diagnostic fallback and requires SST resource
+  linkage.
 - `pnpm test` runs unit and integration tests.
 - `pnpm test:contract` runs route contract tests.
 - `pnpm test:e2e` starts or reuses the development SST stage, then runs Playwright.
@@ -118,10 +120,12 @@ pnpm test:e2e
 
 ## Environment Notes
 
-- Local development expects `.env.local` with `AUTH_SECRET`, `OWNER_EMAIL`, and
-  `OWNER_PASSWORD`.
-- If not using SST locally, `APP_TABLE_NAME` must point at a reachable ledger
-  table.
+- Runtime authentication requires the SST-linked `AuthSecret`; do not add
+  `AUTH_SECRET` or `NEXTAUTH_SECRET` environment fallbacks.
+- Managed E2E testing expects `.env.local` with `E2E_AUTH_SECRET`,
+  `E2E_USER_EMAIL`, and `E2E_USER_PASSWORD`.
+- Direct Next.js runners require SST-linked application resources;
+  `APP_TABLE_NAME` alone is not a supported authenticated runtime.
 - `pnpm test:e2e` can manage local SST startup, but if `PLAYWRIGHT_BASE_URL` is
   set it runs against that existing server.
 - Do not commit secrets, generated local environment files, `.next`, or test
