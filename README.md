@@ -135,7 +135,7 @@ Production can optionally use an SST-managed custom domain for the web app.
 Copy the example config, set the domain, and deploy:
 
 ```bash
-cp sst.local.example.json sst.local.json
+cp config/budgeted-config.example.json config/budgeted-config.json
 pnpm deploy:production
 ```
 
@@ -165,8 +165,8 @@ object form:
 }
 ```
 
-`sst.local.json` is ignored by git. If the stage does not define `webDomain`,
-the app keeps the default SST URL.
+`config/budgeted-config.json` is ignored by git. If the stage does not define
+`webDomain`, the app keeps the default SST URL.
 
 When a custom domain is configured, deploy outputs include `appCnameTarget` for
 manual CNAME records.
@@ -199,8 +199,8 @@ be zero. Deployment remains a manual operation.
 ### Venmo email ingestion
 
 Venmo ingestion is provisioned only for stages with a `venmoEmail` entry in
-`sst.local.json`. The values must name an existing SES receipt rule set and an
-existing rule in that set:
+`config/budgeted-config.json`. The values must name an existing SES receipt rule
+set and an existing rule in that set:
 
 ```json
 {

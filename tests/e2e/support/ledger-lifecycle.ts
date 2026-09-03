@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { findUserAccountByEmail } from "./src/lib/auth/user-account";
+import { findUserAccountByEmail } from "../../../src/lib/auth/user-account";
 import {
     createLedger,
     deleteLedger,
-} from "./src/features/ledgers/server/ledger-service";
+} from "../../../src/features/ledgers/server/ledger-service";
 
 type E2ELedgerState = {
     ledgerId: string;

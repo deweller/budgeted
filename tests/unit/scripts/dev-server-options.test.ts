@@ -270,11 +270,13 @@ describe("dev server option parsing", () => {
 
             expect(prepared.httpsCert).toBe(path.join(
                 cwd,
+                ".local",
                 "certificates",
                 "localhost.pem",
             ));
             expect(prepared.httpsKey).toBe(path.join(
                 cwd,
+                ".local",
                 "certificates",
                 "localhost-key.pem",
             ));

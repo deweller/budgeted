@@ -38,8 +38,8 @@ const webServerCommand =
 export default defineConfig({
     testDir: "./tests/e2e",
     timeout: 30_000,
-    globalSetup: "./playwright-setup.ts",
-    globalTeardown: "./playwright-teardown.ts",
+    globalSetup: "./tests/e2e/support/global-setup.ts",
+    globalTeardown: "./tests/e2e/support/global-teardown.ts",
     expect: {
         timeout: 5_000,
     },

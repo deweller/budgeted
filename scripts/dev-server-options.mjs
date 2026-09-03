@@ -13,7 +13,7 @@ const devHttpsCertEnvName = "BUDGETED_DEV_HTTPS_CERT";
 const devHttpsCaEnvName = "BUDGETED_DEV_HTTPS_CA";
 const defaultDevPort = "3000";
 const defaultUrlHostname = "localhost";
-const defaultHttpsCertificateDirName = "certificates";
+const defaultHttpsCertificatePathSegments = [".local", "certificates"];
 const localEnvFileName = ".env.local";
 const mkcertVersion = "v1.4.4";
 const opensslBinaryName = "openssl";
@@ -346,7 +346,10 @@ function getMkcertCacheDirectory() {
 }
 
 function getDefaultHttpsCertificatePaths(cwd) {
-    const certificateDir = path.join(cwd, defaultHttpsCertificateDirName);
+    const certificateDir = path.join(
+        cwd,
+        ...defaultHttpsCertificatePathSegments,
+    );
 
     return {
         cert: path.join(certificateDir, "localhost.pem"),

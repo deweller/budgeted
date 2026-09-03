@@ -1,12 +1,12 @@
-import { hashPassword } from "./src/lib/auth/password";
-import { upsertSeededUserAccount } from "./src/lib/auth/user-account";
-import { requireLedgerTableName } from "./src/lib/db/resource";
-import { executeReset } from "./src/lib/db/reset/reset-executor";
+import { hashPassword } from "../../../src/lib/auth/password";
+import { upsertSeededUserAccount } from "../../../src/lib/auth/user-account";
+import { requireLedgerTableName } from "../../../src/lib/db/resource";
+import { executeReset } from "../../../src/lib/db/reset/reset-executor";
 import {
     getBrowserTestStartupError,
     resolveBrowserTestEnvironment,
-} from "./src/lib/env/browser-test";
-import { createE2ELedger } from "./playwright-ledger-lifecycle";
+} from "../../../src/lib/env/browser-test";
+import { createE2ELedger } from "./ledger-lifecycle";
 
 const DEFAULT_E2E_STAGE = "e2e";
 

@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="./.sst/platform/config.d.ts" />
 
-const LOCAL_CONFIG_FILE = "sst.local.json";
+const LOCAL_CONFIG_FILE = "config/budgeted-config.json";
 const SST_ASSET_REPOSITORY = "sst-asset";
 
 const sstAssetLifecyclePolicy = JSON.stringify({

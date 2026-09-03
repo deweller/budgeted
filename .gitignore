@@ -10,6 +10,7 @@
 !.yarn/releases
 !.yarn/versions
 .pnpm-store/
+/.local/
 
 # testing
 /coverage
@@ -18,7 +19,7 @@
 /.next/
 /out/
 .sst/
-sst.local.json
+/config/budgeted-config.json
 
 # production
 /build
