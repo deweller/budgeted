@@ -10,10 +10,6 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
-    "AmazonOrderScraperApiUrl": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
     "AuthSecret": {
       "type": "sst.sst.Secret"
       "value": string
@@ -39,10 +35,6 @@ declare module "sst" {
       "value": string
     }
     "PlaidClientId": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "PlaidEnv": {
       "type": "sst.sst.Secret"
       "value": string
     }

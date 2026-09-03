@@ -27,9 +27,7 @@ type AmazonScraperClientConfig = {
 };
 
 function getAmazonScraperClientConfig(): AmazonScraperClientConfig {
-    const apiUrl =
-        getLinkedSecret("AmazonOrderScraperApiUrl") ??
-        process.env.AMAZON_ORDER_SCRAPER_API_URL;
+    const apiUrl = process.env.AMAZON_ORDER_SCRAPER_API_URL;
     const apiToken =
         getLinkedSecret("AmazonOrderScraperApiToken") ??
         process.env.AMAZON_ORDER_SCRAPER_API_TOKEN;

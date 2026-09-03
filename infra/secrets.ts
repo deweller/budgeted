@@ -6,12 +6,14 @@ export function defineApplicationSecrets() {
         authSecret: new sst.Secret("AuthSecret"),
         amazonOrderScraperApiToken: new sst.Secret(
             "AmazonOrderScraperApiToken",
+            "",
         ),
-        amazonOrderScraperApiUrl: new sst.Secret("AmazonOrderScraperApiUrl"),
-        googleGenerativeAiApiKey: new sst.Secret("GoogleGenerativeAiApiKey"),
-        openAiApiKey: new sst.Secret("OpenAiApiKey"),
-        plaidClientId: new sst.Secret("PlaidClientId"),
-        plaidEnv: new sst.Secret("PlaidEnv"),
-        plaidSecret: new sst.Secret("PlaidSecret"),
+        googleGenerativeAiApiKey: new sst.Secret(
+            "GoogleGenerativeAiApiKey",
+            "",
+        ),
+        openAiApiKey: new sst.Secret("OpenAiApiKey", ""),
+        plaidClientId: new sst.Secret("PlaidClientId", ""),
+        plaidSecret: new sst.Secret("PlaidSecret", ""),
     };
 }

@@ -1,50 +1,14 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="./.sst/platform/config.d.ts" />
 
-const LOCAL_CONFIG_FILE = "config/budgeted-config.json";
-const SST_ASSET_REPOSITORY = "sst-asset";
-
-const sstAssetLifecyclePolicy = JSON.stringify({
-    rules: [
-        {
-            rulePriority: 1,
-            description: "Expire untagged SST build artifacts after 3 days",
-            selection: {
-                tagStatus: "untagged",
-                countType: "sinceImagePushed",
-                countUnit: "days",
-                countNumber: 3,
-            },
-            action: {
-                type: "expire",
-            },
-        },
-    ],
-});
-
-type StageDomains = {
-    app?: DomainConfig;
-    appDomain?: DomainConfig;
-    web?: DomainConfig;
-    webDomain?: DomainConfig;
-    venmoEmail?: VenmoEmailConfig;
-};
-
-type VenmoEmailConfig = {
-    allowedForwarders?: string[];
-    afterRuleName: string;
-    receiptRuleSetName: string;
-    recipient: string;
-};
-
-type LocalSstConfig = Record<string, StageDomains | undefined>;
+const LOCAL_CONFIG_FILE = "config/budgeted-config.toml";
 
 type DomainConfig =
     | string
     | {
-          name?: unknown;
-          dns?: unknown;
-          cert?: unknown;
+          cert?: string;
+          dns?: boolean;
+          name: string;
       };
 
 type ManagedDomain = {
@@ -75,34 +39,6 @@ async function getLocalDevConfig() {
 
 function shellQuote(value: string) {
     return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-async function stageDomains() {
-    const config = await readLocalSstConfig();
-    const stage = config[$app.stage] ?? {};
-
-    return {
-        web: managedDomain(
-            stage.webDomain ?? stage.web ?? stage.appDomain ?? stage.app,
-        ),
-    };
-}
-
-async function readLocalSstConfig(): Promise<LocalSstConfig> {
-    const { existsSync, readFileSync } = await import("node:fs");
-
-    if (!existsSync(LOCAL_CONFIG_FILE)) {
-        return {};
-    }
-
-    try {
-        return JSON.parse(
-            readFileSync(LOCAL_CONFIG_FILE, "utf8"),
-        ) as LocalSstConfig;
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Failed to read ${LOCAL_CONFIG_FILE}: ${message}`);
-    }
 }
 
 function domainValue(value: unknown): string | undefined {
@@ -148,11 +84,17 @@ function managedDomain(value: DomainConfig | undefined): ManagedDomain | undefin
 }
 
 export default $config({
-    app(input) {
+    async app(input) {
+        const { loadBudgetedConfig, resolveStageConfig } = await import(
+            "./infra/config"
+        );
+        const budgetedConfig = loadBudgetedConfig(LOCAL_CONFIG_FILE);
+        const stageConfig = resolveStageConfig(budgetedConfig, input?.stage);
+
         return {
-            name: "budgeted",
-            removal: input?.stage === "production" ? "retain" : "remove",
-            protect: ["production"].includes(input?.stage),
+            name: budgetedConfig.app.name,
+            removal: stageConfig.deployment.removal,
+            protect: stageConfig.deployment.protect,
             home: "aws",
             watch: {
                 ignore: ["test-results", "playwright-report"],
@@ -160,23 +102,38 @@ export default $config({
         };
     },
     async run() {
-        const [{ defineLedgerTable }, { defineApplicationSecrets }, { defineVenmoEmailIngestion }] =
+        const [
+            { defineLedgerTable },
+            { defineApplicationSecrets },
+            {
+                getIntegrationEnvironment,
+                getSstAssetLifecyclePolicy,
+                loadBudgetedConfig,
+                resolveStageConfig,
+            },
+            { defineVenmoEmailIngestion },
+        ] =
             await Promise.all([
                 import("./infra/dynamo"),
                 import("./infra/secrets"),
+                import("./infra/config"),
                 import("./infra/venmo-email"),
             ]);
-        const localConfig = await readLocalSstConfig();
-        const domains = await stageDomains();
-        if ($app.stage === "production") {
+        const budgetedConfig = loadBudgetedConfig(LOCAL_CONFIG_FILE);
+        const stageConfig = resolveStageConfig(budgetedConfig, $app.stage);
+        const webDomain = managedDomain(stageConfig.webDomain);
+        const integrationEnvironment = getIntegrationEnvironment(stageConfig);
+
+        if (stageConfig.infrastructure.assetLifecycle.enabled) {
             new aws.ecr.LifecyclePolicy("SstAssetLifecyclePolicy", {
-                repository: SST_ASSET_REPOSITORY,
-                policy: sstAssetLifecyclePolicy,
+                repository:
+                    stageConfig.infrastructure.assetLifecycle.repository,
+                policy: getSstAssetLifecyclePolicy(stageConfig),
             });
         }
         const secrets = defineApplicationSecrets();
         const ledgerTable = defineLedgerTable();
-        const venmoEmailConfig = localConfig[$app.stage]?.venmoEmail;
+        const venmoEmailConfig = stageConfig.venmoEmail;
         const venmoEmail = venmoEmailConfig
             ? defineVenmoEmailIngestion({ config: venmoEmailConfig, ledgerTable })
             : undefined;
@@ -186,7 +143,7 @@ export default $config({
                 cors: false,
                 lifecycle: [
                     {
-                        expiresIn: "1 day",
+                        expiresIn: `${stageConfig.infrastructure.artifacts.ledgerExportRetentionDays} days`,
                         id: "expire-ledger-exports",
                         prefix: "ledger-exports/",
                     },
@@ -199,11 +156,13 @@ export default $config({
                 cors: {
                     allowHeaders: ["content-type"],
                     allowMethods: ["PUT"],
-                    allowOrigins: ["*"],
+                    allowOrigins:
+                        stageConfig.infrastructure.artifacts
+                            .ynabImportAllowedOrigins,
                 },
                 lifecycle: [
                     {
-                        expiresIn: "2 days",
+                        expiresIn: `${stageConfig.infrastructure.artifacts.ynabImportRetentionDays} days`,
                         id: "expire-ynab-imports",
                         prefix: "ynab-imports/",
                     },
@@ -211,24 +170,28 @@ export default $config({
             },
         );
         const automationHandler = new sst.aws.Function("AutomationHandler", {
+            environment: integrationEnvironment,
             handler: "src/functions/automation-scheduler.handler",
             link: [ledgerTable, ...Object.values(secrets)],
-            timeout: "15 minutes",
+            timeout: stageConfig.infrastructure.automation.timeout,
         });
         const ynabImportWorker = new sst.aws.Function("YnabImportWorker", {
             handler: "src/functions/ynab-import-worker.handler",
             link: [ledgerTable, ynabImportArtifacts],
-            memory: "2 GB",
-            timeout: "15 minutes",
+            memory: stageConfig.infrastructure.ynabImportWorker.memory,
+            timeout: stageConfig.infrastructure.ynabImportWorker.timeout,
         });
         const web = new sst.aws.Nextjs("Web", {
             dev: await getLocalDevConfig(),
-            ...(domains.web ? { domain: domains.web } : {}),
-            environment: venmoEmailConfig
-                ? { VENMO_EMAIL_RECIPIENT: venmoEmailConfig.recipient }
-                : {},
+            ...(webDomain ? { domain: webDomain } : {}),
+            environment: {
+                ...integrationEnvironment,
+                ...(venmoEmailConfig
+                    ? { VENMO_EMAIL_RECIPIENT: venmoEmailConfig.recipient }
+                    : {}),
+            },
             server: {
-                timeout: "60 seconds",
+                timeout: stageConfig.infrastructure.web.timeout,
             },
             link: [
                 ledgerTable,
@@ -240,17 +203,17 @@ export default $config({
             ],
         });
         const automation =
-            $app.stage === "production"
+            stageConfig.infrastructure.automation.enabled
                 ? new sst.aws.CronV2("Automation", {
                       function: automationHandler,
-                      retries: 0,
-                      schedule: "cron(0/2 * * * ? *)",
+                      retries: stageConfig.infrastructure.automation.retries,
+                      schedule: stageConfig.infrastructure.automation.schedule,
                   })
                 : undefined;
 
         return {
             app: web.url,
-            appCnameTarget: domains.web
+            appCnameTarget: webDomain
                 ? web.nodes.cdn?.nodes.distribution.domainName
                 : undefined,
             ledgerTable: ledgerTable.name,

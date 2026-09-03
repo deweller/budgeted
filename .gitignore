@@ -19,7 +19,7 @@
 /.next/
 /out/
 .sst/
-/config/budgeted-config.json
+/config/budgeted-config.toml
 
 # production
 /build

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getLinkedSecret: vi.fn(),
@@ -16,17 +16,19 @@ import {
 describe("Amazon scraper client", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.stubEnv("AMAZON_ORDER_SCRAPER_API_URL", "https://scraper.test");
         mocks.getLinkedSecret.mockImplementation((name: string) => {
-            if (name === "AmazonOrderScraperApiUrl") {
-                return "https://scraper.test";
-            }
-
             if (name === "AmazonOrderScraperApiToken") {
                 return "secret-token";
             }
 
             return undefined;
         });
+    });
+
+    afterEach(() => {
+        vi.unstubAllEnvs();
+        vi.unstubAllGlobals();
     });
 
     it("sends bearer auth to scraper requests", async () => {

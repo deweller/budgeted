@@ -31,7 +31,7 @@ export function resolvePlaidClientId(env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function resolvePlaidEnv(env: NodeJS.ProcessEnv = process.env) {
-    return env.PLAID_ENV ?? getLinkedSecret("PlaidEnv") ?? "sandbox";
+    return env.PLAID_ENV ?? "sandbox";
 }
 
 export function resolvePlaidSecret(env: NodeJS.ProcessEnv = process.env) {

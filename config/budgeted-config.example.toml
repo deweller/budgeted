@@ -1,0 +1,30 @@
+# Copy this file to budgeted-config.toml and customize it for your AWS account.
+
+[app]
+# Used as the SST application name and as part of generated AWS resource names.
+name = "budgeted"
+# The stage that receives production-safe defaults and production integrations.
+productionStage = "production"
+
+# Uncomment to configure a custom domain. Without it, SST provides a URL.
+# [stages.production.webDomain]
+# name = "budgeted.example.com"
+# Set to true when Route 53 manages the domain and SST should manage DNS records.
+# dns = false
+# Use an existing us-east-1 ACM certificate when SST cannot validate via DNS.
+# cert = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+# Uncomment when the Amazon order scraper is used.
+# [stages.production.integrations.amazonOrders]
+# apiUrl = "https://amazon-scraper.example.com"
+
+[stages.production.integrations.plaid]
+# One of: sandbox, development, production.
+environment = "sandbox"
+
+# Uncomment when Venmo email ingestion is used.
+# [stages.production.venmoEmail]
+# allowedForwarders = ["trusted-forwarder@example.com"]
+# recipient = "venmo@aws.example.com"
+# receiptRuleSetName = "EXISTING_ACTIVE_RULE_SET"
+# afterRuleName = "EXISTING_RULE_NAME"

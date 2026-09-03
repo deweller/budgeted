@@ -113,10 +113,6 @@ function resolveLocalSecrets() {
             process.env.AMAZON_ORDER_SCRAPER_API_TOKEN ??
             parsed.AMAZON_ORDER_SCRAPER_API_TOKEN ??
             "test-amazon-order-scraper-token",
-        AMAZON_ORDER_SCRAPER_API_URL:
-            process.env.AMAZON_ORDER_SCRAPER_API_URL ??
-            parsed.AMAZON_ORDER_SCRAPER_API_URL ??
-            "https://example.invalid",
         GOOGLE_GENERATIVE_AI_API_KEY:
             process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
             parsed.GOOGLE_GENERATIVE_AI_API_KEY ??
@@ -129,7 +125,6 @@ function resolveLocalSecrets() {
             process.env.PLAID_CLIENT_ID ??
             parsed.PLAID_CLIENT_ID ??
             "test-plaid-client-id",
-        PLAID_ENV: process.env.PLAID_ENV ?? parsed.PLAID_ENV ?? "sandbox",
         PLAID_SECRET:
             process.env.PLAID_SECRET ?? parsed.PLAID_SECRET ?? "test-plaid-secret",
     };
@@ -146,11 +141,9 @@ function loadLocalSecrets(localSecrets) {
         [
             `AuthSecret=${localSecrets.E2E_AUTH_SECRET}`,
             `AmazonOrderScraperApiToken=${localSecrets.AMAZON_ORDER_SCRAPER_API_TOKEN}`,
-            `AmazonOrderScraperApiUrl=${localSecrets.AMAZON_ORDER_SCRAPER_API_URL}`,
             `GoogleGenerativeAiApiKey=${localSecrets.GOOGLE_GENERATIVE_AI_API_KEY}`,
             `OpenAiApiKey=${localSecrets.OPENAI_API_KEY}`,
             `PlaidClientId=${localSecrets.PLAID_CLIENT_ID}`,
-            `PlaidEnv=${localSecrets.PLAID_ENV}`,
             `PlaidSecret=${localSecrets.PLAID_SECRET}`,
         ].join("\n"),
         { mode: 0o600 },

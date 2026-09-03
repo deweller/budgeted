@@ -30,6 +30,14 @@ pnpm exec sst secret set AuthSecret '<random-32-plus-character-secret>' --stage 
 `AUTH_SECRET` and `NEXTAUTH_SECRET` environment variables are intentionally not
 runtime fallbacks. Authenticated development must run with SST-linked resources.
 
+`AuthSecret` is the only mandatory SST secret. Optional integrations use these
+secrets when configured; unset values leave the corresponding feature
+unavailable:
+
+- Amazon Orders: `AmazonOrderScraperApiToken`
+- Plaid: `PlaidClientId` and `PlaidSecret`
+- AI classification: `GoogleGenerativeAiApiKey` and/or `OpenAiApiKey`
+
 Create the first shared-workspace user with:
 
 ```bash
@@ -138,42 +146,62 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 pnpm exec playwright test tests/e2e/gl
 
 - `pnpm deploy:production`: deploy the production stage with SST
 
-Production can optionally use an SST-managed custom domain for the web app.
-Copy the example config, set the domain, and deploy:
+Copy the example config, review the production-stage settings, and deploy:
 
 ```bash
-cp config/budgeted-config.example.json config/budgeted-config.json
+cp config/budgeted-config.example.toml config/budgeted-config.toml
 pnpm deploy:production
 ```
+
+The standard example contains the user-facing choices most installations need.
+To customize deployment safeguards, retention, worker sizing, schedules, or
+timeouts, start from the complete advanced example instead:
+
+```bash
+cp config/budgeted-advanced-config.example.toml config/budgeted-config.toml
+```
+
+`config/budgeted-config.toml` is ignored by git. It contains non-secret,
+stage-specific application and infrastructure settings. Credentials remain SST
+secrets and must not be added to this file.
+
+The advanced example shows every supported setting. Values omitted from a stage
+use these defaults:
+
+- Application name `budgeted` and production stage `production`
+- Production resources protected and retained; other stages removable
+- Plaid environment `sandbox`; Amazon order scraper disabled without `apiUrl`
+- SST asset cleanup enabled only in production, with a three-day retention
+- Automation enabled only in production, every two minutes, with no retries
+- Ledger exports retained one day and YNAB imports retained two days
+- Automation and YNAB worker timeout 15 minutes; web timeout 60 seconds
+- YNAB worker memory 2 GB and upload CORS origins `*`
+
+`integrations.amazonOrders.apiUrl` and `integrations.plaid.environment` are
+ordinary configuration. `AmazonOrderScraperApiToken`, `PlaidClientId`, and
+`PlaidSecret` remain SST secrets.
+
+Production can optionally use an SST-managed custom domain for the web app.
 
 String domain values use SST's default AWS DNS support, so SST creates the
 Route 53 records and ACM TLS certificate:
 
-```json
-{
-  "production": {
-    "webDomain": "budgeted.example.com"
-  }
-}
+```toml
+[stages.production]
+webDomain = "budgeted.example.com"
 ```
 
 For a manually managed DNS provider or an existing ACM certificate, use the
-object form:
+table form:
 
-```json
-{
-  "production": {
-    "webDomain": {
-      "name": "budgeted.example.com",
-      "dns": false,
-      "cert": "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
-    }
-  }
-}
+```toml
+[stages.production.webDomain]
+name = "budgeted.example.com"
+dns = false
+cert = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
 ```
 
-`config/budgeted-config.json` is ignored by git. If the stage does not define
-`webDomain`, the app keeps the default SST URL.
+If the stage does not define `webDomain`, the app keeps the default SST URL.
 
 When a custom domain is configured, deploy outputs include `appCnameTarget` for
 manual CNAME records.
@@ -206,20 +234,15 @@ be zero. Deployment remains a manual operation.
 ### Venmo email ingestion
 
 Venmo ingestion is provisioned only for stages with a `venmoEmail` entry in
-`config/budgeted-config.json`. The values must name an existing SES receipt rule
+`config/budgeted-config.toml`. The values must name an existing SES receipt rule
 set and an existing rule in that set:
 
-```json
-{
-  "production": {
-    "venmoEmail": {
-      "allowedForwarders": ["trusted-forwarder@example.com"],
-      "recipient": "venmo@aws.example.com",
-      "receiptRuleSetName": "EXISTING_ACTIVE_RULE_SET",
-      "afterRuleName": "EXISTING_RULE_NAME"
-    }
-  }
-}
+```toml
+[stages.production.venmoEmail]
+allowedForwarders = ["trusted-forwarder@example.com"]
+recipient = "venmo@aws.example.com"
+receiptRuleSetName = "EXISTING_ACTIVE_RULE_SET"
+afterRuleName = "EXISTING_RULE_NAME"
 ```
 
 The deployment adds one recipient-specific rule after the named rule. It does

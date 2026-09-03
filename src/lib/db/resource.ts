@@ -49,12 +49,10 @@ function resolveLinkedResource<TResource>(name: string) {
 export function getLinkedSecret(
     name:
         | "AmazonOrderScraperApiToken"
-        | "AmazonOrderScraperApiUrl"
         | "AuthSecret"
         | "GoogleGenerativeAiApiKey"
         | "OpenAiApiKey"
         | "PlaidClientId"
-        | "PlaidEnv"
         | "PlaidSecret",
 ) {
     return resolveLinkedResource<SecretResource>(name)?.value;
