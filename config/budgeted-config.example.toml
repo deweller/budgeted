@@ -23,6 +23,7 @@ integrations.plaid.environment = "sandbox"
 
 # Uncomment when Venmo email ingestion is used.
 # venmoEmail.allowedForwarders = ["trusted-forwarder@example.com"]
+# Use "external" to output DNS records for another provider, or "route53" to
+# create the records automatically in an existing Amazon Route 53 hosted zone.
+# venmoEmail.dns = "external"
 # venmoEmail.recipient = "venmo@aws.example.com"
-# venmoEmail.receiptRuleSetName = "EXISTING_ACTIVE_RULE_SET"
-# venmoEmail.afterRuleName = "EXISTING_RULE_NAME"

@@ -234,19 +234,39 @@ be zero. Deployment remains a manual operation.
 ### Venmo email ingestion
 
 Venmo ingestion is provisioned only for stages with a `venmoEmail` entry in
-`config/budgeted-config.toml`. The values must name an existing SES receipt rule
-set and an existing rule in that set:
+`config/budgeted-config.toml`. The recipient's domain is a dedicated inbox
+domain for this processor. For DNS hosted outside Route 53, use external mode:
 
 ```toml
-[stages.production.venmoEmail]
-allowedForwarders = ["trusted-forwarder@example.com"]
-recipient = "venmo@aws.example.com"
-receiptRuleSetName = "EXISTING_ACTIVE_RULE_SET"
-afterRuleName = "EXISTING_RULE_NAME"
+[stages.production]
+venmoEmail.allowedForwarders = ["trusted-forwarder@example.com"]
+venmoEmail.dns = "external"
+venmoEmail.recipient = "venmo@aws.example.com"
 ```
 
-The deployment adds one recipient-specific rule after the named rule. It does
-not create, replace, or activate an SES receipt rule set. That rule saves MIME
+After deployment, add every TXT and MX entry from the
+`venmoEmailExternalDnsRecords` output at the domain's DNS provider. The TXT
+record verifies domain ownership with SES; the regional MX record directs the
+inbox domain to SES.
+
+When the domain has an existing public hosted zone in Route 53, use managed
+mode instead:
+
+```toml
+[stages.production]
+venmoEmail.allowedForwarders = ["trusted-forwarder@example.com"]
+venmoEmail.dns = "route53"
+venmoEmail.recipient = "venmo@aws.example.com"
+```
+
+SST creates the TXT and MX records and waits for SES domain verification. If
+more than one Route 53 hosted zone could match, set
+`venmoEmail.route53ZoneId`. Managed mode does not register a domain or create a
+hosted zone.
+
+The stack creates and activates its own SES receipt rule set. SES supports only
+one active receipt rule set per AWS account and Region, so this configuration
+must own email receiving in that Region. Its recipient-specific rule saves MIME
 under `venmo-emails/` in a private bucket, invokes the handler asynchronously,
 and stops further receipt-rule processing. Raw objects expire after seven days;
 failed Lambda events are retried twice and retained in a seven-day failure
@@ -260,13 +280,13 @@ direct delivery continues to require Venmo as the top-level sender.
 Deployment remains manual:
 
 ```bash
-AWS_PROFILE=your-profile pnpm deploy:production
+AWS_PROFILE=your-profile pnpm deploy
 ```
 
 After deployment, open Utilities > Venmo, choose the existing non-Plaid account
 that represents the Venmo balance, and enable the inbox. Then configure Gmail
 to forward Venmo mail to the configured `recipient`. If Gmail sends a forwarding
 verification message, retrieve its code from the temporary S3 object before the
-seven-day expiration. Verify that pre-existing receipt rules remain unchanged
-after deployment. Bulk historical backfill and manual `.eml` upload are not part
-of this integration.
+seven-day expiration. Verify that SES reports the inbox domain as verified and
+that the new receipt rule set is active. Bulk historical backfill and manual
+`.eml` upload are not part of this integration.

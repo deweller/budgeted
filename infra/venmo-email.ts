@@ -1,14 +1,42 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../.sst/platform/config.d.ts" />
 
-type VenmoEmailConfig = {
-    allowedForwarders?: string[];
-    afterRuleName: string;
-    receiptRuleSetName: string;
-    recipient: string;
-};
+import type { VenmoEmailConfig } from "./config";
 
 const VENMO_RECEIPT_RULE_NAME = "BudgetedVenmoInbox";
+const VENMO_RECEIPT_RULE_SET_SUFFIX = "venmo-email";
+
+export function getVenmoEmailDomain(recipient: string) {
+    return recipient.slice(recipient.lastIndexOf("@") + 1);
+}
+
+export function getSesInboundEndpoint(region: string) {
+    return `inbound-smtp.${region}.amazonaws.com`;
+}
+
+export function getVenmoEmailDnsRecords(input: {
+    domain: string;
+    region: string;
+    verificationToken: string;
+}) {
+    return [
+        {
+            name: `_amazonses.${input.domain}`,
+            type: "TXT",
+            value: input.verificationToken,
+        },
+        {
+            name: input.domain,
+            priority: 10,
+            type: "MX",
+            value: getSesInboundEndpoint(input.region),
+        },
+    ];
+}
+
+function getReceiptRuleSetName() {
+    return `${$app.name}-${$app.stage}-${VENMO_RECEIPT_RULE_SET_SUFFIX}`;
+}
 
 export function defineVenmoEmailIngestion(input: {
     config: VenmoEmailConfig;
@@ -16,11 +44,43 @@ export function defineVenmoEmailIngestion(input: {
 }) {
     const caller = aws.getCallerIdentityOutput();
     const region = aws.getRegionOutput();
-    const receiptRuleArn = caller.accountId.apply((accountId) =>
-        region.name.apply(
-            (regionName) =>
-                `arn:aws:ses:${regionName}:${accountId}:receipt-rule-set/${input.config.receiptRuleSetName}:receipt-rule/${VENMO_RECEIPT_RULE_NAME}`,
+    const domain = getVenmoEmailDomain(input.config.recipient);
+    const domainIdentity = new aws.ses.DomainIdentity(
+        "VenmoEmailDomainIdentity",
+        { domain },
+    );
+    const dnsRecords = region.name.apply((regionName) =>
+        domainIdentity.verificationToken.apply((verificationToken) =>
+            getVenmoEmailDnsRecords({
+                domain,
+                region: regionName,
+                verificationToken,
+            }),
         ),
+    );
+    const managedDns =
+        input.config.dns === "route53"
+            ? defineRoute53Dns({
+                  domain,
+                  regionName: region.name,
+                  route53ZoneId: input.config.route53ZoneId,
+                  verificationToken: domainIdentity.verificationToken,
+              })
+            : undefined;
+    const domainVerification = managedDns
+        ? new aws.ses.DomainIdentityVerification(
+              "VenmoEmailDomainVerification",
+              { domain: domainIdentity.domain },
+              { dependsOn: [managedDns.verificationRecord] },
+          )
+        : undefined;
+    const receiptRuleSet = new aws.ses.ReceiptRuleSet(
+        "VenmoEmailReceiptRuleSet",
+        { ruleSetName: getReceiptRuleSetName() },
+    );
+    const receiptRuleArn = receiptRuleSet.arn.apply(
+        (ruleSetArn) =>
+            `${ruleSetArn}:receipt-rule/${VENMO_RECEIPT_RULE_NAME}`,
     );
     const failureQueue = new sst.aws.Queue("VenmoEmailFailures", {
         transform: {
@@ -94,19 +154,72 @@ export function defineVenmoEmailIngestion(input: {
     const receiptRule = new aws.ses.ReceiptRule(
         "VenmoEmailReceiptRule",
         {
-            after: input.config.afterRuleName,
             enabled: true,
             lambdaActions: [{ functionArn: handler.arn, invocationType: "Event", position: 2 }],
             name: VENMO_RECEIPT_RULE_NAME,
             recipients: [input.config.recipient],
-            ruleSetName: input.config.receiptRuleSetName,
+            ruleSetName: receiptRuleSet.ruleSetName,
             s3Actions: [{ bucketName: artifacts.name, objectKeyPrefix: "venmo-emails/", position: 1 }],
             scanEnabled: true,
             stopActions: [{ position: 3, scope: "RuleSet" }],
             tlsPolicy: "Require",
         },
-        { dependsOn: [lambdaPermission] },
+        {
+            dependsOn: [
+                domainVerification ?? domainIdentity,
+                lambdaPermission,
+                receiptRuleSet,
+            ],
+        },
+    );
+    const activeReceiptRuleSet = new aws.ses.ActiveReceiptRuleSet(
+        "VenmoEmailActiveReceiptRuleSet",
+        { ruleSetName: receiptRuleSet.ruleSetName },
+        { dependsOn: [receiptRule] },
     );
 
-    return { artifacts, failureQueue, handler, receiptRule };
+    return {
+        activeReceiptRuleSet,
+        artifacts,
+        dnsRecords: input.config.dns === "external" ? dnsRecords : undefined,
+        domainIdentity,
+        failureQueue,
+        handler,
+        receiptRule,
+        receiptRuleSet,
+    };
+}
+
+function defineRoute53Dns(input: {
+    domain: string;
+    regionName: ReturnType<typeof aws.getRegionOutput>["name"];
+    route53ZoneId?: string;
+    verificationToken: InstanceType<
+        typeof aws.ses.DomainIdentity
+    >["verificationToken"];
+}) {
+    const dns = sst.aws.dns(
+        input.route53ZoneId ? { zone: input.route53ZoneId } : {},
+    );
+    const verificationRecord = dns.createRecord(
+        "VenmoEmailIdentity",
+        {
+            name: `_amazonses.${input.domain}`,
+            type: "TXT",
+            value: input.verificationToken,
+        },
+        {},
+    );
+    const mxRecord = dns.createRecord(
+        "VenmoEmailInbox",
+        {
+            name: input.domain,
+            priority: 10,
+            type: "MX",
+            value: input.regionName.apply(getSesInboundEndpoint),
+        },
+        {},
+    );
+
+    return { mxRecord, verificationRecord };
 }

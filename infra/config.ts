@@ -53,12 +53,22 @@ const domainConfigSchema = z.union([
 
 const venmoEmailConfigSchema = z
     .object({
-        afterRuleName: nonEmptyStringSchema,
         allowedForwarders: z.array(nonEmptyStringSchema).optional(),
-        receiptRuleSetName: nonEmptyStringSchema,
-        recipient: nonEmptyStringSchema,
+        dns: z.enum(["external", "route53"]),
+        recipient: z.string().trim().email(),
+        route53ZoneId: nonEmptyStringSchema.optional(),
     })
-    .strict();
+    .strict()
+    .superRefine((config, context) => {
+        if (config.dns !== "route53" && config.route53ZoneId) {
+            context.addIssue({
+                code: "custom",
+                message:
+                    'route53ZoneId can only be used when dns is "route53".',
+                path: ["route53ZoneId"],
+            });
+        }
+    });
 
 const stageConfigSchema = z
     .object({

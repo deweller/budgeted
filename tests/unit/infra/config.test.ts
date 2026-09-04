@@ -138,6 +138,46 @@ describe("Budgeted infrastructure configuration", () => {
         });
     });
 
+    it("supports external and Route 53 DNS for the Venmo inbox", () => {
+        const external = resolveStageConfig(
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        venmoEmail: {
+                            dns: "external",
+                            recipient: "venmo@inbox.example.com",
+                        },
+                    },
+                },
+            }),
+            "production",
+        );
+        const route53 = resolveStageConfig(
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        venmoEmail: {
+                            dns: "route53",
+                            recipient: "venmo@inbox.example.com",
+                            route53ZoneId: "Z0123456789ABCDEFGHIJ",
+                        },
+                    },
+                },
+            }),
+            "production",
+        );
+
+        expect(external.venmoEmail).toEqual({
+            dns: "external",
+            recipient: "venmo@inbox.example.com",
+        });
+        expect(route53.venmoEmail).toEqual({
+            dns: "route53",
+            recipient: "venmo@inbox.example.com",
+            route53ZoneId: "Z0123456789ABCDEFGHIJ",
+        });
+    });
+
     it("rejects unknown settings and invalid integration environments", () => {
         expect(() => parseBudgetedConfig({ unknown: true })).toThrow();
         expect(() =>
@@ -152,6 +192,31 @@ describe("Budgeted infrastructure configuration", () => {
                     production: {
                         integrations: {
                             plaid: { environment: "live" },
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        venmoEmail: {
+                            dns: "external",
+                            recipient: "not-an-email-address",
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        venmoEmail: {
+                            dns: "external",
+                            recipient: "venmo@inbox.example.com",
+                            route53ZoneId: "Z0123456789ABCDEFGHIJ",
                         },
                     },
                 },
