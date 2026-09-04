@@ -8,12 +8,16 @@ productionStage = "production"
 
 [stages.production]
 
-# Uncomment to configure a custom domain. Without it, SST provides a URL.
+# Custom web domain. Without this, SST provides a URL.
 # webDomain.name = "budgeted.example.com"
-# Set to true when Route 53 manages the domain and SST should manage DNS records.
-# webDomain.dns = false
-# Use an existing us-east-1 ACM certificate when SST cannot validate via DNS.
+
+# Choose one DNS scenario:
+# Scenario 1: DNS is hosted externally. An existing ACM certificate is required.
+# webDomain.dns = "external"
 # webDomain.cert = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+# Scenario 2: DNS and certificate validation are managed through AWS.
+# webDomain.dns = "aws"
 
 # Uncomment when the Amazon order scraper is used.
 # integrations.amazonOrders.apiUrl = "https://amazon-scraper.example.com"
@@ -21,9 +25,13 @@ productionStage = "production"
 # One of: sandbox, development, production.
 integrations.plaid.environment = "sandbox"
 
-# Uncomment when Venmo email ingestion is used.
+# Venmo email ingestion.
 # venmoEmail.allowedForwarders = ["trusted-forwarder@example.com"]
-# Use "external" to output DNS records for another provider, or "route53" to
-# create the records automatically in an existing Amazon Route 53 hosted zone.
-# venmoEmail.dns = "external"
 # venmoEmail.recipient = "venmo@aws.example.com"
+
+# Choose one DNS scenario:
+# Scenario 1: DNS is hosted externally.
+# venmoEmail.dns = "external"
+
+# Scenario 2: DNS is managed through AWS.
+# venmoEmail.dns = "aws"

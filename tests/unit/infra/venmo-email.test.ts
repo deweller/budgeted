@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { formatExternalDnsRecords } from "../../../infra/dns";
 import {
-    formatVenmoEmailDnsRecords,
     getSesInboundEndpoint,
     getVenmoEmailDnsRecords,
     getVenmoEmailDomain,
@@ -40,7 +40,7 @@ describe("Venmo email infrastructure", () => {
                 value: "inbound-smtp.us-east-1.amazonaws.com",
             },
         ]);
-        expect(formatVenmoEmailDnsRecords(records)).toBe(
+        expect(formatExternalDnsRecords(records)).toBe(
             [
                 "",
                 "  TXT record",

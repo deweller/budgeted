@@ -183,28 +183,35 @@ ordinary configuration. `AmazonOrderScraperApiToken`, `PlaidClientId`, and
 
 Production can optionally use an SST-managed custom domain for the web app.
 
-String domain values use SST's default AWS DNS support, so SST creates the
-Route 53 records and ACM TLS certificate:
+For DNS hosted outside Route 53, provide the existing ACM certificate and use
+external mode:
 
 ```toml
 [stages.production]
-webDomain = "budgeted.example.com"
+webDomain.name = "budgeted.example.com"
+webDomain.dns = "external"
+webDomain.cert = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
 ```
 
-For a manually managed DNS provider or an existing ACM certificate, use the
-table form:
+The deployment output `webDomainExternalDnsRecords` contains the CNAME to add
+at the external DNS provider. The certificate must cover the configured domain
+and be issued in `us-east-1` for CloudFront.
+
+When the domain has an existing public hosted zone in Route 53, use managed
+mode instead:
 
 ```toml
-[stages.production.webDomain]
-name = "budgeted.example.com"
-dns = false
-cert = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+[stages.production]
+webDomain.name = "budgeted.example.com"
+webDomain.dns = "aws"
 ```
+
+SST creates the Route 53 records and ACM certificate validation automatically.
+If more than one hosted zone could match, set `webDomain.route53ZoneId`.
 
 If the stage does not define `webDomain`, the app keeps the default SST URL.
 
-When a custom domain is configured, deploy outputs include `appCnameTarget` for
-manual CNAME records.
+The lower-level `appCnameTarget` output remains available for either mode.
 
 ### Transaction importer data migration
 
@@ -255,7 +262,7 @@ mode instead:
 ```toml
 [stages.production]
 venmoEmail.allowedForwarders = ["trusted-forwarder@example.com"]
-venmoEmail.dns = "route53"
+venmoEmail.dns = "aws"
 venmoEmail.recipient = "venmo@aws.example.com"
 ```
 

@@ -40,31 +40,47 @@ const sstScheduleSchema = z
     )
     .transform((value): SstSchedule => value as SstSchedule);
 
-const domainConfigSchema = z.union([
-    nonEmptyStringSchema,
-    z
-        .object({
-            cert: nonEmptyStringSchema.optional(),
-            dns: z.boolean().optional(),
-            name: nonEmptyStringSchema,
-        })
-        .strict(),
-]);
+const domainConfigSchema = z
+    .object({
+        cert: nonEmptyStringSchema.optional(),
+        dns: z.enum(["external", "aws"]),
+        name: nonEmptyStringSchema,
+        route53ZoneId: nonEmptyStringSchema.optional(),
+    })
+    .strict()
+    .superRefine((config, context) => {
+        if (config.dns === "external" && !config.cert) {
+            context.addIssue({
+                code: "custom",
+                message:
+                    'cert is required when webDomain.dns is "external".',
+                path: ["cert"],
+            });
+        }
+        if (config.dns !== "aws" && config.route53ZoneId) {
+            context.addIssue({
+                code: "custom",
+                message:
+                    'route53ZoneId can only be used when webDomain.dns is "aws".',
+                path: ["route53ZoneId"],
+            });
+        }
+    });
 
 const venmoEmailConfigSchema = z
     .object({
         allowedForwarders: z.array(nonEmptyStringSchema).optional(),
-        dns: z.enum(["external", "route53"]),
+        dns: z.enum(["external", "aws"]),
         recipient: z.string().trim().email(),
         route53ZoneId: nonEmptyStringSchema.optional(),
     })
     .strict()
     .superRefine((config, context) => {
-        if (config.dns !== "route53" && config.route53ZoneId) {
+        if (config.dns !== "aws" && config.route53ZoneId) {
             context.addIssue({
                 code: "custom",
                 message:
-                    'route53ZoneId can only be used when dns is "route53".',
+                    'route53ZoneId can only be used when dns is "aws".',
                 path: ["route53ZoneId"],
             });
         }

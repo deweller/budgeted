@@ -138,7 +138,7 @@ describe("Budgeted infrastructure configuration", () => {
         });
     });
 
-    it("supports external and Route 53 DNS for the Venmo inbox", () => {
+    it("supports external and AWS DNS for the Venmo inbox", () => {
         const external = resolveStageConfig(
             parseBudgetedConfig({
                 stages: {
@@ -152,12 +152,12 @@ describe("Budgeted infrastructure configuration", () => {
             }),
             "production",
         );
-        const route53 = resolveStageConfig(
+        const aws = resolveStageConfig(
             parseBudgetedConfig({
                 stages: {
                     production: {
                         venmoEmail: {
-                            dns: "route53",
+                            dns: "aws",
                             recipient: "venmo@inbox.example.com",
                             route53ZoneId: "Z0123456789ABCDEFGHIJ",
                         },
@@ -171,9 +171,51 @@ describe("Budgeted infrastructure configuration", () => {
             dns: "external",
             recipient: "venmo@inbox.example.com",
         });
-        expect(route53.venmoEmail).toEqual({
-            dns: "route53",
+        expect(aws.venmoEmail).toEqual({
+            dns: "aws",
             recipient: "venmo@inbox.example.com",
+            route53ZoneId: "Z0123456789ABCDEFGHIJ",
+        });
+    });
+
+    it("supports external and AWS DNS for the web domain", () => {
+        const external = resolveStageConfig(
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        webDomain: {
+                            cert: "arn:aws:acm:us-east-1:123456789012:certificate/example",
+                            dns: "external",
+                            name: "budgeted.example.com",
+                        },
+                    },
+                },
+            }),
+            "production",
+        );
+        const aws = resolveStageConfig(
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        webDomain: {
+                            dns: "aws",
+                            name: "budgeted.example.com",
+                            route53ZoneId: "Z0123456789ABCDEFGHIJ",
+                        },
+                    },
+                },
+            }),
+            "production",
+        );
+
+        expect(external.webDomain).toEqual({
+            cert: "arn:aws:acm:us-east-1:123456789012:certificate/example",
+            dns: "external",
+            name: "budgeted.example.com",
+        });
+        expect(aws.webDomain).toEqual({
+            dns: "aws",
+            name: "budgeted.example.com",
             route53ZoneId: "Z0123456789ABCDEFGHIJ",
         });
     });
@@ -192,6 +234,32 @@ describe("Budgeted infrastructure configuration", () => {
                     production: {
                         integrations: {
                             plaid: { environment: "live" },
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        webDomain: {
+                            dns: "external",
+                            name: "budgeted.example.com",
+                        },
+                    },
+                },
+            }),
+        ).toThrow();
+        expect(() =>
+            parseBudgetedConfig({
+                stages: {
+                    production: {
+                        webDomain: {
+                            cert: "arn:aws:acm:us-east-1:123456789012:certificate/example",
+                            dns: "external",
+                            name: "budgeted.example.com",
+                            route53ZoneId: "Z0123456789ABCDEFGHIJ",
                         },
                     },
                 },

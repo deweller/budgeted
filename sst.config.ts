@@ -3,13 +3,7 @@
 
 const LOCAL_CONFIG_FILE = "config/budgeted-config.toml";
 
-type DomainConfig =
-    | string
-    | {
-          cert?: string;
-          dns?: boolean;
-          name: string;
-      };
+type DomainConfig = import("./infra/config").DomainConfig;
 
 type ManagedDomain = {
     name: string;
@@ -56,43 +50,27 @@ function shellQuote(value: string) {
     return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-function domainValue(value: unknown): string | undefined {
-    if (typeof value !== "string") {
-        return undefined;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function managedDomain(value: DomainConfig | undefined): ManagedDomain | undefined {
+function resolveWebDomain(
+    value: DomainConfig | undefined,
+): ManagedDomain | undefined {
     if (!value) {
         return undefined;
     }
 
-    if (typeof value === "string") {
-        const name = domainValue(value);
-        return name
-            ? {
-                  name,
-                  dns: sst.aws.dns(),
-              }
-            : undefined;
-    }
-
-    const name = domainValue(value.name);
-    if (!name) {
-        return undefined;
-    }
-
     const domain: ManagedDomain = {
-        name,
-        dns: value.dns === false ? false : sst.aws.dns(),
+        name: value.name,
+        dns:
+            value.dns === "external"
+                ? false
+                : sst.aws.dns(
+                      value.route53ZoneId
+                          ? { zone: value.route53ZoneId }
+                          : {},
+                  ),
     };
 
-    const cert = domainValue(value.cert);
-    if (cert) {
-        domain.cert = cert;
+    if (value.cert) {
+        domain.cert = value.cert;
     }
 
     return domain;
@@ -126,17 +104,20 @@ export default $config({
                 loadBudgetedConfig,
                 resolveStageConfig,
             },
+            { formatExternalDnsRecords },
             { defineVenmoEmailIngestion },
         ] =
             await Promise.all([
                 import("./infra/dynamo"),
                 import("./infra/secrets"),
                 import("./infra/config"),
+                import("./infra/dns"),
                 import("./infra/venmo-email"),
             ]);
         const budgetedConfig = loadBudgetedConfig(LOCAL_CONFIG_FILE);
         const stageConfig = resolveStageConfig(budgetedConfig, $app.stage);
-        const webDomain = managedDomain(stageConfig.webDomain);
+        const webDomainConfig = stageConfig.webDomain;
+        const webDomain = resolveWebDomain(webDomainConfig);
         const integrationEnvironment = getIntegrationEnvironment(stageConfig);
         const localDevConfig = await getLocalDevConfig();
 
@@ -227,12 +208,25 @@ export default $config({
                       schedule: stageConfig.infrastructure.automation.schedule,
                   })
                 : undefined;
+        const appCnameTarget = webDomain
+            ? web.nodes.cdn?.nodes.distribution.domainName
+            : undefined;
+        const webDomainExternalDnsRecords =
+            webDomainConfig?.dns === "external"
+                ? appCnameTarget?.apply((cnameTarget) =>
+                      formatExternalDnsRecords([
+                          {
+                              name: webDomainConfig.name,
+                              type: "CNAME",
+                              value: cnameTarget,
+                          },
+                      ]),
+                  )
+                : undefined;
 
         return {
             app: web.url,
-            appCnameTarget: webDomain
-                ? web.nodes.cdn?.nodes.distribution.domainName
-                : undefined,
+            appCnameTarget,
             ledgerTable: ledgerTable.name,
             automationSchedule: automation?.nodes.schedule.name,
             venmoEmailBucket: venmoEmail?.artifacts.name,
@@ -240,6 +234,7 @@ export default $config({
             venmoEmailRecipient: venmoEmailConfig?.recipient,
             venmoEmailRule: venmoEmail?.receiptRule.name,
             venmoEmailRuleSet: venmoEmail?.receiptRuleSet.ruleSetName,
+            webDomainExternalDnsRecords,
         };
     },
 });

@@ -2,6 +2,7 @@
 /// <reference path="../.sst/platform/config.d.ts" />
 
 import type { VenmoEmailConfig } from "./config";
+import { formatExternalDnsRecords } from "./dns";
 
 const VENMO_RECEIPT_RULE_NAME = "BudgetedVenmoInbox";
 const VENMO_RECEIPT_RULE_SET_SUFFIX = "venmo-email";
@@ -34,25 +35,6 @@ export function getVenmoEmailDnsRecords(input: {
     ];
 }
 
-export function formatVenmoEmailDnsRecords(
-    records: ReturnType<typeof getVenmoEmailDnsRecords>,
-) {
-    const formattedRecords = records
-        .map((record) =>
-            [
-                `  ${record.type} record`,
-                `    Name: ${record.name}`,
-                ...(record.priority === undefined
-                    ? []
-                    : [`    Priority: ${record.priority}`]),
-                `    Value: ${record.value}`,
-            ].join("\n"),
-        )
-        .join("\n\n");
-
-    return `\n${formattedRecords}`;
-}
-
 function getReceiptRuleSetName() {
     return `${$app.name}-${$app.stage}-${VENMO_RECEIPT_RULE_SET_SUFFIX}`;
 }
@@ -73,7 +55,7 @@ export function defineVenmoEmailIngestion(input: {
             ? region.name.apply((regionName) =>
                   domainIdentity.verificationToken.apply(
                       (verificationToken) =>
-                          formatVenmoEmailDnsRecords(
+                          formatExternalDnsRecords(
                               getVenmoEmailDnsRecords({
                                   domain,
                                   region: regionName,
@@ -84,7 +66,7 @@ export function defineVenmoEmailIngestion(input: {
               )
             : undefined;
     const managedDns =
-        input.config.dns === "route53"
+        input.config.dns === "aws"
             ? defineRoute53Dns({
                   domain,
                   regionName: region.name,
