@@ -12,8 +12,8 @@ import {
     getWorkspaceEntityId,
 } from "@/lib/workspace/entity-config";
 import { encodeWorkspaceCursor } from "@/lib/workspace/cursor";
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 
 export { WORKSPACE_ENTITY_TYPES, getWorkspaceEntityId };
 
@@ -44,7 +44,7 @@ export function stableStringify(value: unknown) {
 }
 
 function digestWorkspaceRevision(value: unknown) {
-    return bytesToHex(sha256(stableStringify(value)));
+    return bytesToHex(sha256(utf8ToBytes(stableStringify(value))));
 }
 
 /** A stable digest for domain aggregates that must include every stored field. */

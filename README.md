@@ -6,7 +6,7 @@ The product UI is dark-only. There is no light-mode switch or alternate theme pr
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 22.22.2+, 24.15.0+, or 26+
 - pnpm 11+
 - AWS credentials for the target SST stage when using linked infrastructure
 

@@ -424,13 +424,22 @@ export function PlaidLinkSection({
     }
 
     function handlePlaidSuccess(
-        publicToken: string,
+        publicToken: string | null,
         metadata: PlaidLinkOnSuccessMetadata,
     ) {
         shouldOpenLinkRef.current = false;
         setLinkToken(null);
         setLinkTokenPlaidItemId(undefined);
         setLoadedLinkToken(null);
+
+        if (!publicToken) {
+            notifyError({
+                message:
+                    "Plaid did not return an authorization token. Start Link again and select an account.",
+                title: "Plaid account could not be linked.",
+            });
+            return;
+        }
 
         if (metadata.accounts.length === 1) {
             void exchangePlaidToken({

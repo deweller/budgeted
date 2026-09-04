@@ -14,7 +14,7 @@ type MockPlaidLinkOptions = {
     onExit?: (error: null) => void;
     onLoad?: () => void;
     onSuccess?: (
-        publicToken: string,
+        publicToken: string | null,
         metadata: {
             accounts: Array<{
                 id: string;
@@ -374,6 +374,71 @@ describe("US2 account and transaction flows", () => {
         });
 
         await waitFor(() => expect(mocks.plaidOpen).toHaveBeenCalledTimes(2));
+    });
+
+    it("does not exchange a nullable Plaid Link public token", async () => {
+        const user = userEvent.setup();
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ institutions: [] }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ linkToken: "link-token-1" }),
+            });
+        vi.stubGlobal("fetch", fetchMock);
+
+        renderWithFeedback(
+            <AccountsTable
+                accounts={[
+                    {
+                        accountId: "account-1",
+                        accountType: "checking",
+                        balanceCents: 10_000,
+                        createdAt: "2026-05-22T00:00:00.000Z",
+                        ledgerAccountId: "acct_checking",
+                        ledgerId: "ledger-1",
+                        name: "Checking",
+                        openedOn: "2026-05-22",
+                        openingBalanceCents: 10_000,
+                        updatedAt: "2026-05-22T00:00:00.000Z",
+                    },
+                ]}
+            />,
+        );
+
+        await user.click(screen.getByRole("button", { name: "Edit" }));
+        await user.click(screen.getByRole("button", { name: "Set up Plaid" }));
+        await user.click(screen.getByRole("button", { name: "Link Plaid" }));
+        await waitFor(() =>
+            expect(mocks.lastPlaidOptions?.token).toBe("link-token-1"),
+        );
+
+        act(() => {
+            mocks.lastPlaidOptions?.onSuccess?.(null, {
+                accounts: [
+                    {
+                        id: "plaid-account-1",
+                        mask: "1234",
+                        name: "Everyday Checking",
+                        subtype: "checking",
+                    },
+                ],
+                institution: {
+                    institution_id: "institution-1",
+                    name: "Test Bank",
+                },
+            });
+        });
+
+        await waitFor(() =>
+            expect(
+                screen.getByText("Plaid account could not be linked."),
+            ).toBeInTheDocument(),
+        );
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it("shows progress while the first Plaid link runs initial sync", async () => {

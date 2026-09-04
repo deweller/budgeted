@@ -1,6 +1,6 @@
 import { listPlaidTransactionSyncsForTransaction } from "@/features/plaid/server/plaid-transaction-sync-record-service";
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { normalizeTransactionIds } from "@/features/transactions/models/transaction-ids";
 import {
     createTransactionAuditLogRecord,
@@ -40,7 +40,10 @@ export type TransactionStatusBatchMutation = {
 };
 
 function createTransactionIdSignature(transactionIds: readonly string[]) {
-    return bytesToHex(sha256(transactionIds.join("\u001f"))).slice(0, 16);
+    return bytesToHex(sha256(utf8ToBytes(transactionIds.join("\u001f")))).slice(
+        0,
+        16,
+    );
 }
 
 export function getTransactionStatusBatchMutations(input: {

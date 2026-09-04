@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 
 import type { PlaidTransactionSyncRecord } from "@/features/plaid/server/plaid-service";
 import {
@@ -1961,12 +1961,16 @@ export function createBulkTransactionDeleteRequestDigest(input: {
 }) {
     return bytesToHex(
         sha256(
-            stableStringify({
-                ledgerId: input.ledgerId,
-                mutationType: input.mutationType,
-                previewRevision: input.previewRevision,
-                transactionIds: normalizeTransactionIds(input.transactionIds),
-            }),
+            utf8ToBytes(
+                stableStringify({
+                    ledgerId: input.ledgerId,
+                    mutationType: input.mutationType,
+                    previewRevision: input.previewRevision,
+                    transactionIds: normalizeTransactionIds(
+                        input.transactionIds,
+                    ),
+                }),
+            ),
         ),
     );
 }

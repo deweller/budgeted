@@ -1,5 +1,5 @@
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 
 import type { AccountReconciliationCommitInput } from "@/features/accounts/models/account-reconciliation";
 import {
@@ -48,7 +48,7 @@ import {
 import { calculateAccountBalanceCents } from "@/modules/ledger/account-balance";
 
 function createPreviewRevision(input: object) {
-    return bytesToHex(sha256(stableStringify(input)));
+    return bytesToHex(sha256(utf8ToBytes(stableStringify(input))));
 }
 
 function toUtcDate(timestamp: string) {
