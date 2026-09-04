@@ -34,6 +34,25 @@ export function getVenmoEmailDnsRecords(input: {
     ];
 }
 
+export function formatVenmoEmailDnsRecords(
+    records: ReturnType<typeof getVenmoEmailDnsRecords>,
+) {
+    const formattedRecords = records
+        .map((record) =>
+            [
+                `  ${record.type} record`,
+                `    Name: ${record.name}`,
+                ...(record.priority === undefined
+                    ? []
+                    : [`    Priority: ${record.priority}`]),
+                `    Value: ${record.value}`,
+            ].join("\n"),
+        )
+        .join("\n\n");
+
+    return `\n${formattedRecords}`;
+}
+
 function getReceiptRuleSetName() {
     return `${$app.name}-${$app.stage}-${VENMO_RECEIPT_RULE_SET_SUFFIX}`;
 }
@@ -49,15 +68,21 @@ export function defineVenmoEmailIngestion(input: {
         "VenmoEmailDomainIdentity",
         { domain },
     );
-    const dnsRecords = region.name.apply((regionName) =>
-        domainIdentity.verificationToken.apply((verificationToken) =>
-            getVenmoEmailDnsRecords({
-                domain,
-                region: regionName,
-                verificationToken,
-            }),
-        ),
-    );
+    const externalDnsRecords =
+        input.config.dns === "external"
+            ? region.name.apply((regionName) =>
+                  domainIdentity.verificationToken.apply(
+                      (verificationToken) =>
+                          formatVenmoEmailDnsRecords(
+                              getVenmoEmailDnsRecords({
+                                  domain,
+                                  region: regionName,
+                                  verificationToken,
+                              }),
+                          ),
+                  ),
+              )
+            : undefined;
     const managedDns =
         input.config.dns === "route53"
             ? defineRoute53Dns({
@@ -181,7 +206,7 @@ export function defineVenmoEmailIngestion(input: {
     return {
         activeReceiptRuleSet,
         artifacts,
-        dnsRecords: input.config.dns === "external" ? dnsRecords : undefined,
+        externalDnsRecords,
         domainIdentity,
         failureQueue,
         handler,

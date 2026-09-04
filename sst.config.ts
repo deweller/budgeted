@@ -236,7 +236,7 @@ export default $config({
             ledgerTable: ledgerTable.name,
             automationSchedule: automation?.nodes.schedule.name,
             venmoEmailBucket: venmoEmail?.artifacts.name,
-            venmoEmailExternalDnsRecords: venmoEmail?.dnsRecords,
+            venmoEmailExternalDnsRecords: venmoEmail?.externalDnsRecords,
             venmoEmailRecipient: venmoEmailConfig?.recipient,
             venmoEmailRule: venmoEmail?.receiptRule.name,
             venmoEmailRuleSet: venmoEmail?.receiptRuleSet.ruleSetName,

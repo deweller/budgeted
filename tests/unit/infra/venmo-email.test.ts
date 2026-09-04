@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    formatVenmoEmailDnsRecords,
     getSesInboundEndpoint,
     getVenmoEmailDnsRecords,
     getVenmoEmailDomain,
@@ -20,13 +21,13 @@ describe("Venmo email infrastructure", () => {
     });
 
     it("describes every DNS record required for an external provider", () => {
-        expect(
-            getVenmoEmailDnsRecords({
-                domain: "aws.example.com",
-                region: "us-east-1",
-                verificationToken: "verification-token",
-            }),
-        ).toEqual([
+        const records = getVenmoEmailDnsRecords({
+            domain: "aws.example.com",
+            region: "us-east-1",
+            verificationToken: "verification-token",
+        });
+
+        expect(records).toEqual([
             {
                 name: "_amazonses.aws.example.com",
                 type: "TXT",
@@ -39,5 +40,18 @@ describe("Venmo email infrastructure", () => {
                 value: "inbound-smtp.us-east-1.amazonaws.com",
             },
         ]);
+        expect(formatVenmoEmailDnsRecords(records)).toBe(
+            [
+                "",
+                "  TXT record",
+                "    Name: _amazonses.aws.example.com",
+                "    Value: verification-token",
+                "",
+                "  MX record",
+                "    Name: aws.example.com",
+                "    Priority: 10",
+                "    Value: inbound-smtp.us-east-1.amazonaws.com",
+            ].join("\n"),
+        );
     });
 });
