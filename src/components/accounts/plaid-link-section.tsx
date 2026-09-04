@@ -162,7 +162,7 @@ export function PlaidLinkSection({
         () =>
             pendingExchange?.accounts.map((plaidAccount) => ({
                 label: formatLinkedAccount({
-                    mask: plaidAccount.mask,
+                    mask: plaidAccount.mask ?? undefined,
                     name: plaidAccount.name,
                     subtype: plaidAccount.subtype,
                 }),

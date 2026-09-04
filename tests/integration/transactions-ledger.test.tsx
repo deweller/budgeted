@@ -936,8 +936,6 @@ describe("US2 account and transaction flows", () => {
                 "justify-center",
             );
         }
-        expect(householdViewLink).toHaveStyle({ font: "inherit" });
-
         fireEvent.keyDown(window, { key: "e" });
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 

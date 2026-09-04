@@ -388,9 +388,18 @@ describe("transaction classification service", () => {
                 "type",
             ]),
         );
-        expect(
-            suggestionSchema.properties.suggestedMemo,
-        ).toHaveProperty("anyOf");
+        const suggestedMemoSchema = suggestionSchema.properties.suggestedMemo as {
+            anyOf?: Array<{ type?: string }>;
+            type?: string | string[];
+        };
+        const suggestedMemoAllowsNull =
+            suggestedMemoSchema.anyOf?.some(
+                (option) => option.type === "null",
+            ) ||
+            (Array.isArray(suggestedMemoSchema.type) &&
+                suggestedMemoSchema.type.includes("null"));
+
+        expect(suggestedMemoAllowsNull).toBe(true);
         expect(suggestionSchema.properties).not.toHaveProperty("templateId");
     });
 
